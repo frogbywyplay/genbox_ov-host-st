@@ -1,0 +1,16 @@
+This patch fixes a segfault when stepping with a pending breakpoint set.
+
+Signed-off-by: Chris Smith <chris.smith@st.com>
+Index: gdb-6.8/gdb/linux-awareness.c
+===================================================================
+--- gdb-6.8.orig/gdb/linux-awareness.c
++++ gdb-6.8/gdb/linux-awareness.c
+@@ -3066,7 +3066,7 @@ normal_stop_callback (struct bpstats *bs
+ 	struct breakpoint *bp;
+ 
+ 	ALL_BREAKPOINTS (bp) {
+-	    if (bp->loc->address
++	    if (bp->loc && bp->loc->address
+ 		&& linux_awareness_ops->lo_is_user_address (bp->loc->address)) {
+ 		has_bp = 1;
+ 		break;

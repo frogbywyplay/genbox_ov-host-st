@@ -1,0 +1,22 @@
+--- gdb-6.8_a/gdb/configure.tgt	2009-05-20 13:26:54.000000000 +0530
++++ gdb-6.8/gdb/configure.tgt	2009-05-20 14:22:49.000000000 +0530
+@@ -84,6 +84,19 @@
+ 			 rtos_support.o"
+ 	  gdb_sim=../sim/arm/libsim.a
+ 	;;
++arm-cortex-linux-gnueabi*)
++	 # Target: Cortex based machine running GNU/Linux
++          gdb_target_obs="arm-tdep.o arm-linux-tdep.o glibc-tdep.o \
++                         solib.o solib-svr4.o symfile-mem.o corelow.o \
++			 starm/STARM_armos.o remote-starm.o starm/STARM_Interface.o starm/STARM_NMF.o \
++			 starm/STARM_Exception.o starm/STARM_SemiHosting.o starm/STARM_Useful.o \
++			 starm/STARM_GdbInterface.o \
++			 remote-stgdi.o stgdi/ST_Client.o stgdi/ST_ClientPipe.o stgdi/System.o \
++			 stgdi/stgdi_interface.o stgdi/ST_MessageBox.o stgdi/ST_GdiUseful.o stgdi/ST_Protocol.o \
++			 rtos_support.o"
++	  gdb_sim=../sim/arm/libsim.a
++	;;
++
+ arm*-*-linux*)
+ 	# Target: ARM based machine running GNU/Linux
+ 	gdb_target_obs="arm-tdep.o arm-linux-tdep.o glibc-tdep.o \

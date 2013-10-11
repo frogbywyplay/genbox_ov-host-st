@@ -1,0 +1,28 @@
+diff -r -N -u gdb-6.8.orig/gdb/Makefile.in gdb-6.8/gdb/Makefile.in
+--- gdb-6.8.orig/gdb/Makefile.in	2010-08-11 21:53:54.214809437 +0000
++++ gdb-6.8/gdb/Makefile.in	2010-08-11 21:56:34.506309750 +0000
+@@ -140,7 +140,9 @@
+ READLINE_CFLAGS = @READLINE_CFLAGS@
+ 
+ # Where is expat?  This will be empty if expat was not available.
+-LIBEXPAT = -Wl,-Bstatic @LIBEXPAT@ -Wl,-Bdynamic
++#LIBEXPAT = -Wl,-Bstatic @LIBEXPAT@ -Wl,-Bdynamic
++# Wyplay: we don't need to force libexpat to be static
++LIBEXPAT = @LIBEXPAT@
+ 
+ WARN_CFLAGS = @WARN_CFLAGS@
+ WERROR_CFLAGS = @WERROR_CFLAGS@
+@@ -397,10 +399,12 @@
+ INSTALLED_LIBS=-lbfd -lreadline -lopcodes -liberty -ldecnumber \
+ 	$(XM_CLIBS) $(TM_CLIBS) $(NAT_CLIBS) $(GDBTKLIBS) @LIBS@ \
+ 	-lintl -liberty
++
++# Wyplay: added -ldl since dlopen/dlclose/dlsym are used in source code
+ CLIBS = $(SIM) $(READLINE) $(OPCODES) $(BFD) $(INTL) $(LIBIBERTY) $(LIBDECNUMBER) \
+ 	$(XM_CLIBS) $(TM_CLIBS) $(NAT_CLIBS) $(GDBTKLIBS) @LIBS@ \
+ 	$(LIBICONV) $(LIBEXPAT) \
+-	$(LIBIBERTY) $(WIN32LIBS) $(LIB_PDCURSES)
++	$(LIBIBERTY) $(WIN32LIBS) $(LIB_PDCURSES) -ldl
+ CDEPS = $(XM_CDEPS) $(TM_CDEPS) $(NAT_CDEPS) $(SIM) $(BFD) $(READLINE_DEPS) \
+ 	$(OPCODES) $(INTL_DEPS) $(LIBIBERTY) $(CONFIG_DEPS) $(LIB_PDCURSES)
+ 

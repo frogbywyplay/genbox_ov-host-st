@@ -1,0 +1,3 @@
+cross-stlinux ${BASE_MIRROR}/host/stlinux-2.3/distfiles
+cross-stlinux24 ${BASE_MIRROR}/host/stlinux-2.4/distfiles
+stlinux ${BASE_MIRROR}/host/stlinux/distfiles
