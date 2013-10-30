@@ -1,0 +1,23 @@
+Update configure stuff to build for sh4 linux target
+
+Signed-off-by: Chris Smith <chris.smith@st.com>
+
+Index: gdb-6.8/gdb/configure.tgt
+===================================================================
+--- gdb-6.8.orig/gdb/configure.tgt	2008-09-18 13:34:47.000000000 +0100
++++ gdb-6.8/gdb/configure.tgt	2008-09-18 13:36:08.000000000 +0100
+@@ -368,11 +368,11 @@
+ 	;;
+ 
+ # FIXME should that be sh*-*-linux*, perhaps?
+-sh-*-linux*)
++sh*-*-linux*)
+ 	# Target: GNU/Linux Super-H
+ 	gdb_target_obs="sh-tdep.o sh64-tdep.o sh-linux-tdep.o monitor.o \
+-			dsrec.o solib.o solib-svr4.o symfile-mem.o"
+-	gdb_sim=../sim/sh/libsim.a
++			dsrec.o shtdi.o solib.o solib-svr4.o symfile-mem.o"
++	gdb_sim=
+ 	build_gdbserver=yes
+ 	;;
+ sh*-*-netbsdelf* | sh*-*-knetbsd*-gnu)

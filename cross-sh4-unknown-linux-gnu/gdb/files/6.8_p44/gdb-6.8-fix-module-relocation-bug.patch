@@ -1,0 +1,53 @@
+Patch to fix up kernel module relocations.
+
+Signed-off-by: Chris Smith <chris.smith@st.com>
+
+Index: gdb-6.8-sh/gdb/linux-awareness.c
+===================================================================
+--- gdb-6.8-sh.orig/gdb/linux-awareness.c
++++ gdb-6.8-sh/gdb/linux-awareness.c
+@@ -1456,7 +1456,7 @@ static void
+ set_section_offsets (bfd *abfd, asection *sectp, void *dummy)
+ {
+     struct lm_info *info = (struct lm_info *) dummy;
+-    CORE_ADDR addr;
++    CORE_ADDR addr, base;
+ 
+     addr = get_module_section_addr (info, bfd_get_section_name (abfd, sectp));
+ 
+@@ -1465,12 +1465,16 @@ set_section_offsets (bfd *abfd, asection
+ 	       bfd_get_section_name (abfd, sectp), paddr(addr));
+ 
+ 	/*  We want the file we create to be totally relocated with a
+-	    base address of 0. As info->module_core should be the
+-	    smallest address, we substract it here. This way the
++	    base address of 0. Find the lowest section which will be
++	    one of init or core and substract it here. This way the
+ 	    module file we create looks like a real shared library to
+ 	    GDB, which just has to offset all the debug information by
+-	    info->module_core. */
+-	bfd_set_section_vma (abfd, sectp, addr - info->module_core);
++	    this base address. */
++	base = info->module_core;
++
++	if (info->module_init < base)
++	    base = info->module_init;
++	bfd_set_section_vma (abfd, sectp, addr - base);
+     }
+ }
+ 
+@@ -2078,8 +2082,12 @@ debugging session. Please move that file
+     if (so->lm_info->needs_relocated_file) {
+ 	/* Just do as if our handcrafted file was a real shared
+ 	   library. */
+-	sec->endaddr += so->lm_info->module_core;
+-	sec->addr += so->lm_info->module_core;
++	CORE_ADDR base = so->lm_info->module_core;
++	if (base > so->lm_info->module_init)
++	    base = so->lm_info->module_init;
++
++	sec->endaddr += base;
++	sec->addr += base;
+ 	return;
+     }
+ 

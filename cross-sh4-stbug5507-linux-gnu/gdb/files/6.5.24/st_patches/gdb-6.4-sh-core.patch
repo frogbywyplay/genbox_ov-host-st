@@ -1,0 +1,197 @@
+Support for core files in sh cross gdb. See bugzilla:
+   https://bugzilla.stlinux.com/show_bug.cgi?id=234
+Written by Marek Skuczynski <mareksk@easymail.pl>, updated by
+Jon Frosdick <jon.frosdick@st.com>.
+
+diff -Naur gdb-6.4.orig/gdb/config/sh/linux.mt gdb-6.4/gdb/config/sh/linux.mt
+--- gdb-6.4.orig/gdb/config/sh/linux.mt	2006-08-10 09:35:08.000000000 +0100
++++ gdb-6.4/gdb/config/sh/linux.mt	2006-08-10 10:05:35.000000000 +0100
+@@ -2,7 +2,7 @@
+ TDEPFILES= sh-tdep.o sh64-tdep.o sh-linux-tdep.o \
+ 	monitor.o sh3-rom.o remote-e7000.o ser-e7kpc.o dsrec.o \
+ 	shtdi.o solib.o solib-svr4.o symfile-mem.o linux-awareness.o \
+-	linux-awareness-sh4.o linux-tdep.o
++	linux-awareness-sh4.o linux-tdep.o corelow.o
+ DEPRECATED_TM_FILE= tm-linux.h
+ 
+ SIM_OBS = 
+diff -Naur gdb-6.4.orig/gdb/sh-linux-tdep.c gdb-6.4/gdb/sh-linux-tdep.c
+--- gdb-6.4.orig/gdb/sh-linux-tdep.c	2006-08-10 09:35:08.000000000 +0100
++++ gdb-6.4/gdb/sh-linux-tdep.c	2006-08-10 10:04:48.000000000 +0100
+@@ -27,7 +27,10 @@
+ #include "floatformat.h"
+ #include "gdbcore.h"
+ #include "gdb_assert.h"
++#include "gdb_string.h"
+ #include "frame.h"
++#include "trad-frame.h"
++#include "tramp-frame.h"
+ #include "frame-unwind.h"
+ #include "regcache.h"
+ #include "doublest.h"
+@@ -38,6 +41,159 @@
+ #include "sh-tdep.h"
+ #include "glibc-tdep.h"
+ 
++/*
++ * GCC defines register number like this:
++ * -----------------------------
++ *      0 - 15 are integer registers
++ *     17 - 22 are control/special registers
++ *     24 - 39 fp registers
++ *     40 - 47 xd registers
++ *     48 -    fpscr register
++ * -----------------------------
++ *
++ * We follows above, except:
++ *     16 --- program counter (PC)
++ *     22 --- syscall #
++ *     23 --- floating point communication register
++ */
++#define REG_REG0        0
++#define REG_REG15      15
++
++#define REG_PC         16
++
++#define REG_PR         17
++#define REG_SR         18
++#define REG_GBR        19
++#define REG_MACH       20
++#define REG_MACL       21
++
++#define REG_SYSCALL    22
++
++#define REG_FPREG0     23
++#define REG_FPREG15    38
++#define REG_XFREG0     39
++#define REG_XFREG15    54
++
++#define REG_FPSCR      55
++#define REG_FPUL       56
++
++/* options set using PTRACE_SETOPTIONS */
++#define PTRACE_O_TRACESYSGOOD     0x00000001
++
++/*
++ * This struct defines the way the registers are stored on the
++ * kernel stack during a system call or other kernel entry.
++ */
++
++struct pt_regs {
++       unsigned long regs[16];
++       unsigned long pc;
++       unsigned long pr;
++       unsigned long sr;
++       unsigned long gbr;
++       unsigned long mach;
++       unsigned long macl;
++       long tra;
++};
++
++struct user_fpu_struct {
++       unsigned long fp_regs[16];
++       unsigned long xfp_regs[16];
++       unsigned long fpscr;
++       unsigned long fpul;
++};
++
++typedef unsigned long elf_greg_t;
++
++#define ELF_NGREG (sizeof (struct pt_regs) / sizeof(elf_greg_t))
++typedef elf_greg_t elf_gregset_t[ELF_NGREG];
++
++typedef struct user_fpu_struct elf_fpregset_t;
++
++
++static void
++supply_32bit_reg (int regnum, const void *addr)
++{
++  char buf[MAX_REGISTER_SIZE];
++  store_signed_integer (buf, register_size (current_gdbarch, regnum),
++                        extract_signed_integer (addr, 4));
++  regcache_raw_supply (current_regcache, regnum, buf);
++}
++
++
++void 
++supply_gregset (elf_gregset_t *gregsetp)
++{
++  int regi;
++  elf_greg_t *regp = *gregsetp;
++  char zerobuf[MAX_REGISTER_SIZE];
++
++  memset (zerobuf, 0, MAX_REGISTER_SIZE);
++
++  for (regi = REG_REG0; regi <= REG_REG15; regi++)
++    supply_32bit_reg ((regi - REG_REG0), (char *)(regp + regi));
++
++  supply_32bit_reg (REG_PC, (char *)(regp + REG_PC));
++
++  supply_32bit_reg (SR_REGNUM, (char *)(regp + REG_SR));
++
++  supply_32bit_reg (PR_REGNUM, (char *)(regp + REG_PR));
++
++  supply_32bit_reg (GBR_REGNUM, (char *)(regp + REG_GBR));
++
++  supply_32bit_reg (MACH_REGNUM, (char *)(regp + REG_MACH));
++  supply_32bit_reg (MACL_REGNUM, (char *)(regp + REG_MACL));
++
++#if 0
++    regcache_raw_supply (current_regcache, regi, zerobuf);
++#endif
++}
++
++
++static void
++fetch_core_registers (char *core_reg_sect, unsigned core_reg_size,
++                     int which, CORE_ADDR reg_addr)
++{
++  elf_gregset_t gregset;
++  elf_fpregset_t fpregset;
++
++  if (which == 0)
++    {
++     if (core_reg_size == sizeof (gregset))
++       {
++         memcpy ((char *) &gregset, core_reg_sect, sizeof (gregset));
++         supply_gregset (&gregset);
++       }
++      else
++       {
++         warning ("wrong size gregset struct in core file");
++       }
++    }
++  else if (which == 2)
++    {
++#if 0
++      if (core_reg_size == sizeof (fpregset))
++       {
++         memcpy ((char *) &fpregset, core_reg_sect, sizeof (fpregset));
++         supply_fpregset (&fpregset);
++       }
++      else
++       {
++         warning ("wrong size fpregset struct in core file");
++       }
++#endif
++    }
++}
++
++static struct core_fns regset_core_fns =
++{
++  bfd_target_elf_flavour,              /* core_flavour */
++  default_check_format,                        /* check_format */
++  default_core_sniffer,                        /* core_sniffer */
++  fetch_core_registers,                        /* core_read_registers */
++  NULL                                 /* next */
++};
++
+ /* Signal trampolines */
+ 
+ /* Instructions used in signal trampolines */
+@@ -339,4 +495,5 @@
+ {
+   gdbarch_register_osabi (bfd_arch_sh, 0, GDB_OSABI_LINUX,
+ 			  sh_linux_init_abi);
++  deprecated_add_core_fns (&regset_core_fns);
+ }

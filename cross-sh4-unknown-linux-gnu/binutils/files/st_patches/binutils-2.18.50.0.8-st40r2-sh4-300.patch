@@ -1,0 +1,2391 @@
+diff -Naur binutils-2.18.50.0.8/bfd/archures.c binutils-2.18.50.0.8-stm/bfd/archures.c
+--- binutils-2.18.50.0.8/bfd/archures.c	2008-05-04 15:28:09.000000000 +0100
++++ binutils-2.18.50.0.8-stm/bfd/archures.c	2008-07-18 17:24:29.000000000 +0100
+@@ -3,6 +3,7 @@
+    2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+    Free Software Foundation, Inc.
+    Hacked by John Gilmore and Steve Chamberlain of Cygnus Support.
++   Copyright (c) 2006  STMicroelectronics.
+ 
+    This file is part of BFD, the Binary File Descriptor library.
+ 
+@@ -265,6 +266,11 @@
+ .#define bfd_mach_sh4        0x40
+ .#define bfd_mach_sh4_nofpu  0x41
+ .#define bfd_mach_sh4_nommu_nofpu  0x42
++.#define bfd_mach_st40_300   0x430
++.#define bfd_mach_st40_300_nofpu 0x431
++.#define bfd_mach_st40_300_nofpu_or_sh2a_nofpu 0x432
++.#define bfd_mach_st40_300_nofpu_or_sh4a_nofpu 0x433
++.#define bfd_mach_st40_300_or_sh4a 0x434
+ .#define bfd_mach_sh4a       0x4a
+ .#define bfd_mach_sh4a_nofpu 0x4b
+ .#define bfd_mach_sh4al_dsp  0x4d
+diff -Naur binutils-2.18.50.0.8/bfd/bfd-in2.h binutils-2.18.50.0.8-stm/bfd/bfd-in2.h
+--- binutils-2.18.50.0.8/bfd/bfd-in2.h	2008-07-10 16:33:23.000000000 +0100
++++ binutils-2.18.50.0.8-stm/bfd/bfd-in2.h	2008-07-22 15:27:58.000000000 +0100
+@@ -10,6 +10,7 @@
+    Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+    1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+    Free Software Foundation, Inc.
++   Copyright (c) 2006  STMicroelectronics.
+ 
+    Contributed by Cygnus Support.
+ 
+@@ -1896,6 +1897,11 @@
+ #define bfd_mach_sh4        0x40
+ #define bfd_mach_sh4_nofpu  0x41
+ #define bfd_mach_sh4_nommu_nofpu  0x42
++#define bfd_mach_st40_300   0x430
++#define bfd_mach_st40_300_nofpu 0x431
++#define bfd_mach_st40_300_nofpu_or_sh2a_nofpu 0x432
++#define bfd_mach_st40_300_nofpu_or_sh4a_nofpu 0x433
++#define bfd_mach_st40_300_or_sh4a 0x434
+ #define bfd_mach_sh4a       0x4a
+ #define bfd_mach_sh4a_nofpu 0x4b
+ #define bfd_mach_sh4al_dsp  0x4d
+diff -Naur binutils-2.18.50.0.8/bfd/ChangeLog.st40 binutils-2.18.50.0.8-stm/bfd/ChangeLog.st40
+--- binutils-2.18.50.0.8/bfd/ChangeLog.st40	1970-01-01 01:00:00.000000000 +0100
++++ binutils-2.18.50.0.8-stm/bfd/ChangeLog.st40	2008-07-18 17:25:27.000000000 +0100
+@@ -0,0 +1,34 @@
++2008-03-04  Antony King  <antony.king@st.com>
++
++	elf.c (swap_out_syms): Fix GCC 3.2 compilation failure.
++
++2008-02-12  Alan Modra  <amodra@bigpond.net.au>
++
++	PR 5303, 5755
++	* arange-set.c: Delete.
++	* arange-set.h: Delete.
++	* dwarf2.c: Revert 2007-09-21 changes.
++	* Makefile.am: Likewise.
++	* Makefile.in: Regenerate.
++	* po/SRC-POTFILES.in: Regenerate.
++
++2007-09-14  Antony King  <antony.king@st.com>
++
++	Fix INSbl27871:
++	* config.bfd: Add sh*-superh-elf* target.
++
++2006-03-01  Andrew Stubbs  <andrew.stubbs@st.com>
++
++	* archures.c (bfd_mach_st40_300, bfd_mach_st40_300_nofpu): Define.
++	(bfd_mach_st40_300_nofpu_or_sh2a_nofpu): Likewise.
++	(bfd_mach_st40_300_nofpu_or_sh4a_nofpu): Likewise.
++	(bfd_mach_st40_300_or_sh4a): Likewise.
++	* bfd-in2.h: Regenerate.
++	* cpu-sh.c (ST40_300_NOFPU_OR_SH2A_NOFPU_NEXT): Define.
++	(ST40_300_NOFPU_OR_SH4A_NOFPU_NEXT): Likewise.
++	(ST40_300_NOFPU_NEXT, ST40_300_OR_SH4A_NEXT): Likewise.
++	(ST40_300_NEXT): Likewise.
++	(arch_info_struct): Add st40-300-nofpu-or-sh2a-nofpu,
++	st40-300-nofpu-or-sh4a-nofpu, st40-300-nofpu, st40-300-or-sh4a,
++	and st40-300.
++	(bfd_to_arch_table): Likewise.
+diff -Naur binutils-2.18.50.0.8/bfd/cpu-sh.c binutils-2.18.50.0.8-stm/bfd/cpu-sh.c
+--- binutils-2.18.50.0.8/bfd/cpu-sh.c	2007-08-01 14:11:47.000000000 +0100
++++ binutils-2.18.50.0.8-stm/bfd/cpu-sh.c	2008-07-18 17:20:34.000000000 +0100
+@@ -2,6 +2,7 @@
+    Copyright 1993, 1994, 1997, 1998, 2000, 2001, 2002, 2003, 2004, 2005,
+    2007 Free Software Foundation, Inc.
+    Hacked by Steve Chamberlain of Cygnus Support.
++   Copyright (c) 2006  STMicroelectronics.
+ 
+    This file is part of BFD, the Binary File Descriptor library.
+ 
+@@ -45,6 +46,11 @@
+ #define SH2A_NOFPU_OR_SH3_NOMMU_NEXT       arch_info_struct + 17
+ #define SH2A_OR_SH4_NEXT                   arch_info_struct + 18
+ #define SH2A_OR_SH3E_NEXT                  arch_info_struct + 19
++#define ST40_300_NOFPU_OR_SH2A_NOFPU_NEXT  arch_info_struct + 20
++#define ST40_300_NOFPU_OR_SH4A_NOFPU_NEXT  arch_info_struct + 21
++#define ST40_300_NOFPU_NEXT                arch_info_struct + 22
++#define ST40_300_OR_SH4A_NEXT              arch_info_struct + 23
++#define ST40_300_NEXT                      arch_info_struct + 24
+ #define SH64_NEXT                          NULL
+ 
+ static const bfd_arch_info_type arch_info_struct[] =
+@@ -316,6 +322,76 @@
+     SH2A_OR_SH3E_NEXT
+   },
+   {
++    32,				/* 32 bits in a word.  */
++    32,				/* 32 bits in an address.  */
++    8,				/* 8 bits in a byte.  */
++    bfd_arch_sh,
++    bfd_mach_st40_300_nofpu_or_sh2a_nofpu,
++    "sh",			/* Architecture name.  */
++    "st40-300-nofpu-or-sh2a-nofpu",		/* Machine name.  */
++    1,
++    FALSE,			/* Not the default.  */
++    bfd_default_compatible,
++    bfd_default_scan,
++    ST40_300_NOFPU_OR_SH2A_NOFPU_NEXT
++  },
++  {
++    32,				/* 32 bits in a word.  */
++    32,				/* 32 bits in an address.  */
++    8,				/* 8 bits in a byte.  */
++    bfd_arch_sh,
++    bfd_mach_st40_300_nofpu_or_sh4a_nofpu,
++    "sh",			/* Architecture name.  */
++    "st40-300-nofpu-or-sh4a-nofpu",		/* Machine name.  */
++    1,
++    FALSE,			/* Not the default.  */
++    bfd_default_compatible,
++    bfd_default_scan,
++    ST40_300_NOFPU_OR_SH4A_NOFPU_NEXT
++  },
++  {
++    32,				/* 32 bits in a word.  */
++    32,				/* 32 bits in an address.  */
++    8,				/* 8 bits in a byte.  */
++    bfd_arch_sh,
++    bfd_mach_st40_300_nofpu,
++    "sh",			/* Architecture name.  */
++    "st40-300-nofpu",		/* Machine name.  */
++    1,
++    FALSE,			/* Not the default.  */
++    bfd_default_compatible,
++    bfd_default_scan,
++    ST40_300_NOFPU_NEXT
++  },
++  {
++    32,				/* 32 bits in a word.  */
++    32,				/* 32 bits in an address.  */
++    8,				/* 8 bits in a byte.  */
++    bfd_arch_sh,
++    bfd_mach_st40_300_or_sh4a,
++    "sh",			/* Architecture name.  */
++    "st40-300-or-sh4a",		/* Machine name.  */
++    1,
++    FALSE,			/* Not the default.  */
++    bfd_default_compatible,
++    bfd_default_scan,
++    ST40_300_OR_SH4A_NEXT
++  },
++  {
++    32,				/* 32 bits in a word.  */
++    32,				/* 32 bits in an address.  */
++    8,				/* 8 bits in a byte.  */
++    bfd_arch_sh,
++    bfd_mach_st40_300,
++    "sh",			/* Architecture name.  */
++    "st40-300",			/* Machine name.  */
++    1,
++    FALSE,			/* Not the default.  */
++    bfd_default_compatible,
++    bfd_default_scan,
++    ST40_300_NEXT
++  },
++  {
+     64,				/* 64 bits in a word.  */
+     64,				/* 64 bits in an address.  */
+     8,				/* 8 bits in a byte.  */
+@@ -378,6 +454,12 @@
+   { bfd_mach_sh4_nofpu,       arch_sh4_nofpu,       arch_sh4_nofpu_up },
+   { bfd_mach_sh4_nommu_nofpu, arch_sh4_nommu_nofpu, arch_sh4_nommu_nofpu_up },
+   { bfd_mach_sh4a_nofpu,      arch_sh4a_nofpu,      arch_sh4a_nofpu_up },
++
++  { bfd_mach_st40_300_nofpu_or_sh2a_nofpu,           arch_st40_300_nofpu_or_sh2a_nofpu,	  arch_st40_300_nofpu_or_sh2a_nofpu_up },
++  { bfd_mach_st40_300_nofpu_or_sh4a_nofpu,           arch_st40_300_nofpu_or_sh4a_nofpu,	  arch_st40_300_nofpu_or_sh4a_nofpu_up },
++  { bfd_mach_st40_300_nofpu,  arch_st40_300_nofpu,   arch_st40_300_nofpu_up },
++  { bfd_mach_st40_300_or_sh4a,arch_st40_300_or_sh4a, arch_st40_300_or_sh4a_up },
++  { bfd_mach_st40_300,        arch_st40_300,         arch_st40_300_up },
+   { 0, 0, 0 }   /* Terminator.  */
+ };
+ 
+diff -Naur binutils-2.18.50.0.8/bfd/doc/ChangeLog.st40 binutils-2.18.50.0.8-stm/bfd/doc/ChangeLog.st40
+--- binutils-2.18.50.0.8/bfd/doc/ChangeLog.st40	1970-01-01 01:00:00.000000000 +0100
++++ binutils-2.18.50.0.8-stm/bfd/doc/ChangeLog.st40	2008-07-18 17:21:21.000000000 +0100
+@@ -0,0 +1,11 @@
++2007-10-02  Antony King  <antony.king@st.com>
++
++	* chew.c (main): Add calls to CYGPATH() and CYGPATH_FREE().
++	* Makefile.am: Add libiberty.a to $(MKDOC).
++	* Makefile.in: Regenerate.
++
++2006-01-06  Denis Pilat  <denis.pilat@st.com>
++
++	Apply the insight minGW patch 
++	http://sourceforge.net/forum/forum.php?forum_id=511897 for the following:
++	* chew.c: Prevent \r\n line endings.
+diff -Naur binutils-2.18.50.0.8/binutils/dwarf.c binutils-2.18.50.0.8-stm/binutils/dwarf.c
+--- binutils-2.18.50.0.8/binutils/dwarf.c	2008-05-04 15:28:09.000000000 +0100
++++ binutils-2.18.50.0.8-stm/binutils/dwarf.c	2008-07-22 15:54:38.000000000 +0100
+@@ -4060,8 +4060,9 @@
+ 
+ 	  while (start < block_end)
+ 	    {
++	      int reg;
+ 	      unsigned op, opa;
+-	      unsigned long reg, tmp;
++	      unsigned long tmp;
+ 
+ 	      op = *start++;
+ 	      opa = op & 0x3f;
+@@ -4098,26 +4099,36 @@
+ 		case DW_CFA_offset_extended:
+ 		case DW_CFA_val_offset:
+ 		  reg = LEB (); LEB ();
++		  if (reg < 0)
++		    continue;
+ 		  frame_need_space (fc, reg);
+ 		  fc->col_type[reg] = DW_CFA_undefined;
+ 		  break;
+ 		case DW_CFA_restore_extended:
+ 		  reg = LEB ();
++		  if (reg < 0)
++		    continue;
+ 		  frame_need_space (fc, reg);
+ 		  fc->col_type[reg] = DW_CFA_undefined;
+ 		  break;
+ 		case DW_CFA_undefined:
+ 		  reg = LEB ();
++		  if (reg < 0)
++		    continue;
+ 		  frame_need_space (fc, reg);
+ 		  fc->col_type[reg] = DW_CFA_undefined;
+ 		  break;
+ 		case DW_CFA_same_value:
+ 		  reg = LEB ();
++		  if (reg < 0)
++		    continue;
+ 		  frame_need_space (fc, reg);
+ 		  fc->col_type[reg] = DW_CFA_undefined;
+ 		  break;
+ 		case DW_CFA_register:
+ 		  reg = LEB (); LEB ();
++		  if (reg < 0)
++		    continue;
+ 		  frame_need_space (fc, reg);
+ 		  fc->col_type[reg] = DW_CFA_undefined;
+ 		  break;
+@@ -4139,12 +4150,16 @@
+ 		  reg = LEB ();
+ 		  tmp = LEB ();
+ 		  start += tmp;
++		  if (reg < 0)
++		    continue;
+ 		  frame_need_space (fc, reg);
+ 		  fc->col_type[reg] = DW_CFA_undefined;
+ 		  break;
+ 		case DW_CFA_offset_extended_sf:
+ 		case DW_CFA_val_offset_sf:
+ 		  reg = LEB (); SLEB ();
++		  if (reg < 0)
++		    continue;
+ 		  frame_need_space (fc, reg);
+ 		  fc->col_type[reg] = DW_CFA_undefined;
+ 		  break;
+@@ -4162,6 +4177,8 @@
+ 		  break;
+ 		case DW_CFA_GNU_negative_offset_extended:
+ 		  reg = LEB (); LEB ();
++		  if (reg < 0)
++		    continue;
+ 		  frame_need_space (fc, reg);
+ 		  fc->col_type[reg] = DW_CFA_undefined;
+ 
+@@ -4177,8 +4194,9 @@
+ 
+       while (start < block_end)
+ 	{
++	  int reg;
+ 	  unsigned op, opa;
+-	  unsigned long ul, reg, roffs;
++	  unsigned long ul, roffs;
+ 	  long l, ofs;
+ 	  dwarf_vma vma;
+ 
+@@ -4265,6 +4283,11 @@
+ 	    case DW_CFA_offset_extended:
+ 	      reg = LEB ();
+ 	      roffs = LEB ();
++	      if (reg < 0)
++		{
++		  warn (_("Invalid CFA register: %d\n"), reg);
++		  continue;
++		}
+ 	      if (! do_debug_frames_interp)
+ 		printf ("  DW_CFA_offset_extended: %s at cfa%+ld\n",
+ 			regname (reg, 0), roffs * fc->data_factor);
+@@ -4275,6 +4298,11 @@
+ 	    case DW_CFA_val_offset:
+ 	      reg = LEB ();
+ 	      roffs = LEB ();
++	      if (reg < 0)
++		{
++		  warn (_("Invalid CFA register: %d\n"), reg);
++		  continue;
++		}
+ 	      if (! do_debug_frames_interp)
+ 		printf ("  DW_CFA_val_offset: %s at cfa%+ld\n",
+ 			regname (reg, 0), roffs * fc->data_factor);
+@@ -4284,6 +4312,11 @@
+ 
+ 	    case DW_CFA_restore_extended:
+ 	      reg = LEB ();
++	      if (reg < 0)
++		{
++		  warn (_("Invalid CFA register: %d\n"), reg);
++		  continue;
++		}
+ 	      if (! do_debug_frames_interp)
+ 		printf ("  DW_CFA_restore_extended: %s\n",
+ 			regname (reg, 0));
+@@ -4293,6 +4326,11 @@
+ 
+ 	    case DW_CFA_undefined:
+ 	      reg = LEB ();
++	      if (reg < 0)
++		{
++		  warn (_("Invalid CFA register: %d\n"), reg);
++		  continue;
++		}
+ 	      if (! do_debug_frames_interp)
+ 		printf ("  DW_CFA_undefined: %s\n", regname (reg, 0));
+ 	      fc->col_type[reg] = DW_CFA_undefined;
+@@ -4301,6 +4339,11 @@
+ 
+ 	    case DW_CFA_same_value:
+ 	      reg = LEB ();
++	      if (reg < 0)
++		{
++		  warn (_("Invalid CFA register: %d\n"), reg);
++		  continue;
++		}
+ 	      if (! do_debug_frames_interp)
+ 		printf ("  DW_CFA_same_value: %s\n", regname (reg, 0));
+ 	      fc->col_type[reg] = DW_CFA_same_value;
+@@ -4310,6 +4353,11 @@
+ 	    case DW_CFA_register:
+ 	      reg = LEB ();
+ 	      roffs = LEB ();
++	      if (reg < 0)
++		{
++		  warn (_("Invalid CFA register: %d\n"), reg);
++		  continue;
++		}
+ 	      if (! do_debug_frames_interp)
+ 		{
+ 		  printf ("  DW_CFA_register: %s in ",
+@@ -4395,6 +4443,11 @@
+ 	    case DW_CFA_expression:
+ 	      reg = LEB ();
+ 	      ul = LEB ();
++	      if (reg < 0)
++		{
++		  warn (_("Invalid CFA register: %d\n"), reg);
++		  continue;
++		}
+ 	      if (! do_debug_frames_interp)
+ 		{
+ 		  printf ("  DW_CFA_expression: %s (",
+@@ -4410,6 +4463,11 @@
+ 	    case DW_CFA_val_expression:
+ 	      reg = LEB ();
+ 	      ul = LEB ();
++	      if (reg < 0)
++		{
++		  warn (_("Invalid CFA register: %d\n"), reg);
++		  continue;
++		}
+ 	      if (! do_debug_frames_interp)
+ 		{
+ 		  printf ("  DW_CFA_val_expression: %s (",
+@@ -4424,6 +4482,11 @@
+ 	    case DW_CFA_offset_extended_sf:
+ 	      reg = LEB ();
+ 	      l = SLEB ();
++	      if (reg < 0)
++		{
++		  warn (_("Invalid CFA register: %d\n"), reg);
++		  continue;
++		}
+ 	      frame_need_space (fc, reg);
+ 	      if (! do_debug_frames_interp)
+ 		printf ("  DW_CFA_offset_extended_sf: %s at cfa%+ld\n",
+@@ -4435,6 +4498,11 @@
+ 	    case DW_CFA_val_offset_sf:
+ 	      reg = LEB ();
+ 	      l = SLEB ();
++	      if (reg < 0)
++		{
++		  warn (_("Invalid CFA register: %d\n"), reg);
++		  continue;
++		}
+ 	      frame_need_space (fc, reg);
+ 	      if (! do_debug_frames_interp)
+ 		printf ("  DW_CFA_val_offset_sf: %s at cfa%+ld\n",
+@@ -4485,6 +4553,11 @@
+ 	    case DW_CFA_GNU_negative_offset_extended:
+ 	      reg = LEB ();
+ 	      l = - LEB ();
++	      if (reg < 0)
++		{
++		  warn (_("Invalid CFA register: %d\n"), reg);
++		  continue;
++		}
+ 	      frame_need_space (fc, reg);
+ 	      if (! do_debug_frames_interp)
+ 		printf ("  DW_CFA_GNU_negative_offset_extended: %s at cfa%+ld\n",
+diff -Naur binutils-2.18.50.0.8/binutils/readelf.c binutils-2.18.50.0.8-stm/binutils/readelf.c
+--- binutils-2.18.50.0.8/binutils/readelf.c	2008-07-10 16:33:23.000000000 +0100
++++ binutils-2.18.50.0.8-stm/binutils/readelf.c	2008-07-22 16:05:45.000000000 +0100
+@@ -1,6 +1,7 @@
+ /* readelf.c -- display contents of an ELF format file
+    Copyright 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
+    2008  Free Software Foundation, Inc.
++   Copyright (c) 2006  STMicroelectronics.
+ 
+    Originally developed by Eric Youngdale <eric@andante.jic.com>
+    Modifications by Nick Clifton <nickc@redhat.com>
+@@ -2390,6 +2391,11 @@
+ 	    case EF_SH2A_SH3_NOFPU: strcat (buf, ", sh2a-nofpu-or-sh3-nommu"); break;
+ 	    case EF_SH2A_SH4: strcat (buf, ", sh2a-or-sh4"); break;
+ 	    case EF_SH2A_SH3E: strcat (buf, ", sh2a-or-sh3e"); break;
++	    case EF_ST40_300_SH2A_NOFPU: strcat (buf, ", st40-300-nofpu-or-sh2a-nofpu"); break;
++	    case EF_ST40_300_SH4A_NOFPU: strcat (buf, ", st40-300-nofpu-or-sh4a-nofpu"); break;
++	    case EF_ST40_300_NOFPU: strcat (buf, ", st40-300-nofpu"); break;
++	    case EF_ST40_300_SH4A: strcat (buf, ", st40-300-or-sh4a"); break;
++	    case EF_ST40_300: strcat (buf, ", st40-300"); break;
+ 	    default: strcat (buf, ", unknown ISA"); break;
+ 	    }
+ 
+diff -Naur binutils-2.18.50.0.8/gas/config/tc-sh.c binutils-2.18.50.0.8-stm/gas/config/tc-sh.c
+--- binutils-2.18.50.0.8/gas/config/tc-sh.c	2008-05-04 15:28:10.000000000 +0100
++++ binutils-2.18.50.0.8-stm/gas/config/tc-sh.c	2008-07-22 16:38:57.000000000 +0100
+@@ -1,6 +1,7 @@
+ /* tc-sh.c -- Assemble code for the Renesas / SuperH SH
+    Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+    2003, 2004, 2005, 2006, 2007  Free Software Foundation, Inc.
++   Copyright (c) 2006  STMicroelectronics.
+ 
+    This file is part of GAS, the GNU Assembler.
+ 
+@@ -1681,7 +1682,9 @@
+ 
+ 	  if (SH_MERGE_ARCH_SET_VALID (valid_arch, arch_sh2a_nofpu_up)
+ 	      && (   arg == A_DISP_REG_M
+-		  || arg == A_DISP_REG_N))
++		  || arg == A_DISP_REG_N)
++	      && (   user->type == A_DISP_REG_M
++		  || user->type == A_DISP_REG_N))
+ 	    {
+ 	      /* Check a few key IMM* fields for overflow.  */
+ 	      int opf;
+@@ -1731,6 +1734,24 @@
+ 	      if (user->type != A_REG_N || user->reg != 0)
+ 		goto fail;
+ 	      break;
++	/* For use by ST40-300 EXPERIMENTAL mulr instructions.
++	   Not for submission to netsources.  */
++	    case A_R1:
++	      /* opcode needs r1 */
++	      if (user->type != A_REG_N || user->reg != 1)
++		goto fail;
++	      break;
++	    case A_R2:
++	      /* opcode needs r2 */
++	      if (user->type != A_REG_N || user->reg != 2)
++		goto fail;
++	      break;
++	    case A_R3:
++	      /* opcode needs r3 */
++	      if (user->type != A_REG_N || user->reg != 3)
++		goto fail;
++	      break;
++	/* End of experimental.  */
+ 	    case A_R0_GBR:
+ 	      if (user->type != A_R0_GBR || user->reg != 0)
+ 		goto fail;
+diff -Naur binutils-2.18.50.0.8/gas/configure.tgt binutils-2.18.50.0.8-stm/gas/configure.tgt
+--- binutils-2.18.50.0.8/gas/configure.tgt	2008-07-10 16:32:58.000000000 +0100
++++ binutils-2.18.50.0.8-stm/gas/configure.tgt	2008-07-22 16:41:23.000000000 +0100
+@@ -343,6 +343,7 @@
+   sh64*-*-netbsd*)			fmt=elf em=nbsd ;;
+   sh*-*-netbsdelf*)			fmt=elf em=nbsd ;;
+   sh*-*-symbianelf*)			fmt=elf endian=little ;;
++  sh-superh-elf)			fmt=elf endian=little ;;
+   sh-*-elf* | sh-*-uclinux* | sh[12]-*-uclinux*)	fmt=elf ;;
+   sh-*-coff*)				fmt=coff ;;
+   sh-*-nto*)				fmt=elf ;;
+diff -Naur binutils-2.18.50.0.8/gas/testsuite/gas/sh/arch/arch.exp binutils-2.18.50.0.8-stm/gas/testsuite/gas/sh/arch/arch.exp
+--- binutils-2.18.50.0.8/gas/testsuite/gas/sh/arch/arch.exp	2008-05-04 15:28:10.000000000 +0100
++++ binutils-2.18.50.0.8-stm/gas/testsuite/gas/sh/arch/arch.exp	2008-07-22 16:45:26.000000000 +0100
+@@ -1,5 +1,6 @@
+ # Copyright (C) 2004, 2005, 2007
+ # Free Software Foundation, Inc.
++# Copyright (c) 2006  STMicroelectronics.
+ 
+ # This program is free software; you can redistribute it and/or modify
+ # it under the terms of the GNU General Public License as published by
+@@ -135,7 +136,7 @@
+     # Find all the architectures and generate the
+     # list of options we will test.
+ 
+-    set filelist [lsort -ascii [glob "$srcdir/$subdir/sh*.s"]]
++    set filelist [lsort -ascii [glob "$srcdir/$subdir/s\[ht]*.s"]]
+     set optlist {"default-options" "-dsp" "-isa=any" "-isa=dsp" "-isa=fp"}
+     foreach file $filelist {
+ 	set arch [file rootname [file tail $file]]
+@@ -313,6 +314,8 @@
+     # No match so move to next (possible) comment
+     -re {^.+?((?=/\*)|(?=\#\s*define))} exp_continue
+ }
++catch "close"
++catch "wait"
+ send_log "--------------------------------------------------------\n"
+ 
+ if {$archcount == 0} then {
+@@ -347,6 +350,7 @@
+     regsub -nocase {<bdisp\d*>} $out {.+8} out
+     regsub -nocase {<disp12>} $out {2048} out
+     regsub -nocase {<disp\d*>} $out {8} out
++    regsub -nocase {<adisp>} $out {end-.} out
+     regsub -nocase {Rn_BANK} $out {r1_bank} out
+     regsub -nocase {Rm_BANK} $out {r2_bank} out
+     regsub -nocase {<F_REG_N>} $out {fr1} out
+@@ -461,6 +465,8 @@
+ 	    incr insns_valid($arches($arch))
+ 	}
+     }
++    puts $fd "\t.align 2"
++    puts $fd "end:"
+     close $fd
+ }
+ 
+@@ -493,26 +499,35 @@
+ for {set i 0} {$i < $insncount} {incr i} {
+     puts $fd [format "\t%-25s ;!%s" $insns(insn,$i) $insns(context,$i)]
+ }
++puts $fd "\t.align 2"
++puts $fd "end:"
+ close $fd
+ 
+ # Assemble the all_insns.s file for each isa and count how many failures there are
+ foreach arch [array names insns_valid] {
+-    set errormessages 0
++    set lines {}
+     set expected [expr $insncount - $insns_valid($arch)]
+ 
+     # The -Z option ensures that all error messages are output,
+     # even those from later phases of assembly (such as offset range errors)
+     send_log "$AS -Z -isa=$arch all_insns.s -o /dev/null\n"
+     spawn $AS -Z -isa=$arch all_insns.s -o /dev/null
+-    expect Error: {incr errormessages; exp_continue}
++    expect -re {:([0-9]+): Error:} {
++	if {[lsearch -exact $lines $expect_out(1,string)] == -1} {
++	    lappend lines $expect_out(1,string)
++	}
++	exp_continue
++    }
++    catch "close"
++    catch "wait"
+ 
+-    if {$errormessages == $expected} then {
++    if {[llength $lines] == $expected} then {
+ 	pass "$expected insns should not assemble on $arch"
+     } else {
+ 	if {([istarget sh*-*-coff] || [istarget sh*-hms]) && [string match {*dsp} $arch]} {
+-	    xfail "$expected insns should not assemble on $arch ($errormessages did not)"
++	    xfail "$expected insns should not assemble on $arch ([llength $lines] did not)"
+ 	} else {
+-	    fail "$expected insns should not assemble on $arch ($errormessages did not)"
++	    fail "$expected insns should not assemble on $arch ([llength $lines] did not)"
+ 	}
+     }
+ }
+diff -Naur binutils-2.18.50.0.8/gas/testsuite/gas/sh/arch/arch_expected.txt binutils-2.18.50.0.8-stm/gas/testsuite/gas/sh/arch/arch_expected.txt
+--- binutils-2.18.50.0.8/gas/testsuite/gas/sh/arch/arch_expected.txt	2005-04-09 20:03:14.000000000 +0100
++++ binutils-2.18.50.0.8-stm/gas/testsuite/gas/sh/arch/arch_expected.txt	2008-07-22 16:47:05.000000000 +0100
+@@ -55,6 +55,16 @@
+ sh-dsp.s             -isa=sh4a-up              ERROR
+ sh-dsp.s             -isa=sh4al-dsp            sh4al-dsp
+ sh-dsp.s             -isa=sh4al-dsp-up         sh4al-dsp
++sh-dsp.s             -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++sh-dsp.s             -isa=st40-300-nofpu-or-sh2a-nofpu-up ERROR
++sh-dsp.s             -isa=st40-300-nofpu-or-sh4a-nofpu ERROR
++sh-dsp.s             -isa=st40-300-nofpu-or-sh4a-nofpu-up sh4al-dsp
++sh-dsp.s             -isa=st40-300-nofpu       ERROR
++sh-dsp.s             -isa=st40-300-nofpu-up    ERROR
++sh-dsp.s             -isa=st40-300-or-sh4a     ERROR
++sh-dsp.s             -isa=st40-300-or-sh4a-up  ERROR
++sh-dsp.s             -isa=st40-300             ERROR
++sh-dsp.s             -isa=st40-300-up          ERROR
+ sh.s                 default-options           sh
+ sh.s                 -dsp                      sh
+ sh.s                 -isa=any                  sh
+@@ -100,6 +110,16 @@
+ sh.s                 -isa=sh4a-up              sh4a
+ sh.s                 -isa=sh4al-dsp            sh4al-dsp
+ sh.s                 -isa=sh4al-dsp-up         sh4al-dsp
++sh.s                 -isa=st40-300-nofpu-or-sh2a-nofpu st40-300-nofpu-or-sh2a-nofpu
++sh.s                 -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300-nofpu-or-sh2a-nofpu
++sh.s                 -isa=st40-300-nofpu-or-sh4a-nofpu st40-300-nofpu-or-sh4a-nofpu
++sh.s                 -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-nofpu-or-sh4a-nofpu
++sh.s                 -isa=st40-300-nofpu       st40-300-nofpu
++sh.s                 -isa=st40-300-nofpu-up    st40-300-nofpu
++sh.s                 -isa=st40-300-or-sh4a     st40-300-or-sh4a
++sh.s                 -isa=st40-300-or-sh4a-up  st40-300-or-sh4a
++sh.s                 -isa=st40-300             st40-300
++sh.s                 -isa=st40-300-up          st40-300
+ sh2.s                default-options           sh2
+ sh2.s                -dsp                      sh2
+ sh2.s                -isa=any                  sh2
+@@ -145,6 +165,16 @@
+ sh2.s                -isa=sh4a-up              sh4a
+ sh2.s                -isa=sh4al-dsp            sh4al-dsp
+ sh2.s                -isa=sh4al-dsp-up         sh4al-dsp
++sh2.s                -isa=st40-300-nofpu-or-sh2a-nofpu st40-300-nofpu-or-sh2a-nofpu
++sh2.s                -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300-nofpu-or-sh2a-nofpu
++sh2.s                -isa=st40-300-nofpu-or-sh4a-nofpu st40-300-nofpu-or-sh4a-nofpu
++sh2.s                -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-nofpu-or-sh4a-nofpu
++sh2.s                -isa=st40-300-nofpu       st40-300-nofpu
++sh2.s                -isa=st40-300-nofpu-up    st40-300-nofpu
++sh2.s                -isa=st40-300-or-sh4a     st40-300-or-sh4a
++sh2.s                -isa=st40-300-or-sh4a-up  st40-300-or-sh4a
++sh2.s                -isa=st40-300             st40-300
++sh2.s                -isa=st40-300-up          st40-300
+ sh2a-nofpu-or-sh3-nommu.s default-options           sh2a-nofpu-or-sh3-nommu
+ sh2a-nofpu-or-sh3-nommu.s -dsp                      sh2a-nofpu-or-sh3-nommu
+ sh2a-nofpu-or-sh3-nommu.s -isa=any                  sh2a-nofpu-or-sh3-nommu
+@@ -190,6 +220,16 @@
+ sh2a-nofpu-or-sh3-nommu.s -isa=sh4a-up              sh4a
+ sh2a-nofpu-or-sh3-nommu.s -isa=sh4al-dsp            sh4al-dsp
+ sh2a-nofpu-or-sh3-nommu.s -isa=sh4al-dsp-up         sh4al-dsp
++sh2a-nofpu-or-sh3-nommu.s -isa=st40-300-nofpu-or-sh2a-nofpu st40-300-nofpu-or-sh2a-nofpu
++sh2a-nofpu-or-sh3-nommu.s -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300-nofpu-or-sh2a-nofpu
++sh2a-nofpu-or-sh3-nommu.s -isa=st40-300-nofpu-or-sh4a-nofpu st40-300-nofpu-or-sh4a-nofpu
++sh2a-nofpu-or-sh3-nommu.s -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-nofpu-or-sh4a-nofpu
++sh2a-nofpu-or-sh3-nommu.s -isa=st40-300-nofpu       st40-300-nofpu
++sh2a-nofpu-or-sh3-nommu.s -isa=st40-300-nofpu-up    st40-300-nofpu
++sh2a-nofpu-or-sh3-nommu.s -isa=st40-300-or-sh4a     st40-300-or-sh4a
++sh2a-nofpu-or-sh3-nommu.s -isa=st40-300-or-sh4a-up  st40-300-or-sh4a
++sh2a-nofpu-or-sh3-nommu.s -isa=st40-300             st40-300
++sh2a-nofpu-or-sh3-nommu.s -isa=st40-300-up          st40-300
+ sh2a-nofpu-or-sh4-nommu-nofpu.s default-options           sh2a-nofpu-or-sh4-nommu-nofpu
+ sh2a-nofpu-or-sh4-nommu-nofpu.s -dsp                      sh2a-nofpu-or-sh4-nommu-nofpu
+ sh2a-nofpu-or-sh4-nommu-nofpu.s -isa=any                  sh2a-nofpu-or-sh4-nommu-nofpu
+@@ -235,6 +275,16 @@
+ sh2a-nofpu-or-sh4-nommu-nofpu.s -isa=sh4a-up              sh4a
+ sh2a-nofpu-or-sh4-nommu-nofpu.s -isa=sh4al-dsp            sh4al-dsp
+ sh2a-nofpu-or-sh4-nommu-nofpu.s -isa=sh4al-dsp-up         sh4al-dsp
++sh2a-nofpu-or-sh4-nommu-nofpu.s -isa=st40-300-nofpu-or-sh2a-nofpu st40-300-nofpu-or-sh2a-nofpu
++sh2a-nofpu-or-sh4-nommu-nofpu.s -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300-nofpu-or-sh2a-nofpu
++sh2a-nofpu-or-sh4-nommu-nofpu.s -isa=st40-300-nofpu-or-sh4a-nofpu st40-300-nofpu-or-sh4a-nofpu
++sh2a-nofpu-or-sh4-nommu-nofpu.s -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-nofpu-or-sh4a-nofpu
++sh2a-nofpu-or-sh4-nommu-nofpu.s -isa=st40-300-nofpu       st40-300-nofpu
++sh2a-nofpu-or-sh4-nommu-nofpu.s -isa=st40-300-nofpu-up    st40-300-nofpu
++sh2a-nofpu-or-sh4-nommu-nofpu.s -isa=st40-300-or-sh4a     st40-300-or-sh4a
++sh2a-nofpu-or-sh4-nommu-nofpu.s -isa=st40-300-or-sh4a-up  st40-300-or-sh4a
++sh2a-nofpu-or-sh4-nommu-nofpu.s -isa=st40-300             st40-300
++sh2a-nofpu-or-sh4-nommu-nofpu.s -isa=st40-300-up          st40-300
+ sh2a-nofpu.s         default-options           sh2a-nofpu
+ sh2a-nofpu.s         -dsp                      sh2a-nofpu
+ sh2a-nofpu.s         -isa=any                  sh2a-nofpu
+@@ -280,6 +330,16 @@
+ sh2a-nofpu.s         -isa=sh4a-up              ERROR
+ sh2a-nofpu.s         -isa=sh4al-dsp            ERROR
+ sh2a-nofpu.s         -isa=sh4al-dsp-up         ERROR
++sh2a-nofpu.s         -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++sh2a-nofpu.s         -isa=st40-300-nofpu-or-sh2a-nofpu-up sh2a-nofpu
++sh2a-nofpu.s         -isa=st40-300-nofpu-or-sh4a-nofpu ERROR
++sh2a-nofpu.s         -isa=st40-300-nofpu-or-sh4a-nofpu-up ERROR
++sh2a-nofpu.s         -isa=st40-300-nofpu       ERROR
++sh2a-nofpu.s         -isa=st40-300-nofpu-up    ERROR
++sh2a-nofpu.s         -isa=st40-300-or-sh4a     ERROR
++sh2a-nofpu.s         -isa=st40-300-or-sh4a-up  ERROR
++sh2a-nofpu.s         -isa=st40-300             ERROR
++sh2a-nofpu.s         -isa=st40-300-up          ERROR
+ sh2a-or-sh3e.s       default-options           sh2a-or-sh3e
+ sh2a-or-sh3e.s       -dsp                      ERROR
+ sh2a-or-sh3e.s       -isa=any                  sh2a-or-sh3e
+@@ -325,6 +385,16 @@
+ sh2a-or-sh3e.s       -isa=sh4a-up              sh4a
+ sh2a-or-sh3e.s       -isa=sh4al-dsp            ERROR
+ sh2a-or-sh3e.s       -isa=sh4al-dsp-up         ERROR
++sh2a-or-sh3e.s       -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++sh2a-or-sh3e.s       -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300
++sh2a-or-sh3e.s       -isa=st40-300-nofpu-or-sh4a-nofpu ERROR
++sh2a-or-sh3e.s       -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-or-sh4a
++sh2a-or-sh3e.s       -isa=st40-300-nofpu       ERROR
++sh2a-or-sh3e.s       -isa=st40-300-nofpu-up    st40-300
++sh2a-or-sh3e.s       -isa=st40-300-or-sh4a     st40-300-or-sh4a
++sh2a-or-sh3e.s       -isa=st40-300-or-sh4a-up  st40-300-or-sh4a
++sh2a-or-sh3e.s       -isa=st40-300             st40-300
++sh2a-or-sh3e.s       -isa=st40-300-up          st40-300
+ sh2a-or-sh4.s        default-options           sh2a-or-sh4
+ sh2a-or-sh4.s        -dsp                      ERROR
+ sh2a-or-sh4.s        -isa=any                  sh2a-or-sh4
+@@ -370,6 +440,16 @@
+ sh2a-or-sh4.s        -isa=sh4a-up              sh4a
+ sh2a-or-sh4.s        -isa=sh4al-dsp            ERROR
+ sh2a-or-sh4.s        -isa=sh4al-dsp-up         ERROR
++sh2a-or-sh4.s        -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++sh2a-or-sh4.s        -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300
++sh2a-or-sh4.s        -isa=st40-300-nofpu-or-sh4a-nofpu ERROR
++sh2a-or-sh4.s        -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-or-sh4a
++sh2a-or-sh4.s        -isa=st40-300-nofpu       ERROR
++sh2a-or-sh4.s        -isa=st40-300-nofpu-up    st40-300
++sh2a-or-sh4.s        -isa=st40-300-or-sh4a     st40-300-or-sh4a
++sh2a-or-sh4.s        -isa=st40-300-or-sh4a-up  st40-300-or-sh4a
++sh2a-or-sh4.s        -isa=st40-300             st40-300
++sh2a-or-sh4.s        -isa=st40-300-up          st40-300
+ sh2a.s               default-options           sh2a
+ sh2a.s               -dsp                      ERROR
+ sh2a.s               -isa=any                  sh2a
+@@ -415,6 +495,16 @@
+ sh2a.s               -isa=sh4a-up              ERROR
+ sh2a.s               -isa=sh4al-dsp            ERROR
+ sh2a.s               -isa=sh4al-dsp-up         ERROR
++sh2a.s               -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++sh2a.s               -isa=st40-300-nofpu-or-sh2a-nofpu-up sh2a
++sh2a.s               -isa=st40-300-nofpu-or-sh4a-nofpu ERROR
++sh2a.s               -isa=st40-300-nofpu-or-sh4a-nofpu-up ERROR
++sh2a.s               -isa=st40-300-nofpu       ERROR
++sh2a.s               -isa=st40-300-nofpu-up    ERROR
++sh2a.s               -isa=st40-300-or-sh4a     ERROR
++sh2a.s               -isa=st40-300-or-sh4a-up  ERROR
++sh2a.s               -isa=st40-300             ERROR
++sh2a.s               -isa=st40-300-up          ERROR
+ sh2e.s               default-options           sh2e
+ sh2e.s               -dsp                      ERROR
+ sh2e.s               -isa=any                  sh2e
+@@ -460,6 +550,16 @@
+ sh2e.s               -isa=sh4a-up              sh4a
+ sh2e.s               -isa=sh4al-dsp            ERROR
+ sh2e.s               -isa=sh4al-dsp-up         ERROR
++sh2e.s               -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++sh2e.s               -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300
++sh2e.s               -isa=st40-300-nofpu-or-sh4a-nofpu ERROR
++sh2e.s               -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-or-sh4a
++sh2e.s               -isa=st40-300-nofpu       ERROR
++sh2e.s               -isa=st40-300-nofpu-up    st40-300
++sh2e.s               -isa=st40-300-or-sh4a     st40-300-or-sh4a
++sh2e.s               -isa=st40-300-or-sh4a-up  st40-300-or-sh4a
++sh2e.s               -isa=st40-300             st40-300
++sh2e.s               -isa=st40-300-up          st40-300
+ sh3-dsp.s            default-options           ERROR
+ sh3-dsp.s            -dsp                      sh3-dsp
+ sh3-dsp.s            -isa=any                  sh3-dsp
+@@ -505,6 +605,16 @@
+ sh3-dsp.s            -isa=sh4a-up              ERROR
+ sh3-dsp.s            -isa=sh4al-dsp            sh4al-dsp
+ sh3-dsp.s            -isa=sh4al-dsp-up         sh4al-dsp
++sh3-dsp.s            -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++sh3-dsp.s            -isa=st40-300-nofpu-or-sh2a-nofpu-up ERROR
++sh3-dsp.s            -isa=st40-300-nofpu-or-sh4a-nofpu ERROR
++sh3-dsp.s            -isa=st40-300-nofpu-or-sh4a-nofpu-up sh4al-dsp
++sh3-dsp.s            -isa=st40-300-nofpu       ERROR
++sh3-dsp.s            -isa=st40-300-nofpu-up    ERROR
++sh3-dsp.s            -isa=st40-300-or-sh4a     ERROR
++sh3-dsp.s            -isa=st40-300-or-sh4a-up  ERROR
++sh3-dsp.s            -isa=st40-300             ERROR
++sh3-dsp.s            -isa=st40-300-up          ERROR
+ sh3-nommu.s          default-options           sh3-nommu
+ sh3-nommu.s          -dsp                      sh3-nommu
+ sh3-nommu.s          -isa=any                  sh3-nommu
+@@ -550,6 +660,16 @@
+ sh3-nommu.s          -isa=sh4a-up              sh4a
+ sh3-nommu.s          -isa=sh4al-dsp            sh4al-dsp
+ sh3-nommu.s          -isa=sh4al-dsp-up         sh4al-dsp
++sh3-nommu.s          -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++sh3-nommu.s          -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300-nofpu
++sh3-nommu.s          -isa=st40-300-nofpu-or-sh4a-nofpu st40-300-nofpu-or-sh4a-nofpu
++sh3-nommu.s          -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-nofpu-or-sh4a-nofpu
++sh3-nommu.s          -isa=st40-300-nofpu       st40-300-nofpu
++sh3-nommu.s          -isa=st40-300-nofpu-up    st40-300-nofpu
++sh3-nommu.s          -isa=st40-300-or-sh4a     st40-300-or-sh4a
++sh3-nommu.s          -isa=st40-300-or-sh4a-up  st40-300-or-sh4a
++sh3-nommu.s          -isa=st40-300             st40-300
++sh3-nommu.s          -isa=st40-300-up          st40-300
+ sh3.s                default-options           sh3
+ sh3.s                -dsp                      sh3
+ sh3.s                -isa=any                  sh3
+@@ -595,6 +715,16 @@
+ sh3.s                -isa=sh4a-up              sh4a
+ sh3.s                -isa=sh4al-dsp            sh4al-dsp
+ sh3.s                -isa=sh4al-dsp-up         sh4al-dsp
++sh3.s                -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++sh3.s                -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300-nofpu
++sh3.s                -isa=st40-300-nofpu-or-sh4a-nofpu st40-300-nofpu-or-sh4a-nofpu
++sh3.s                -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-nofpu-or-sh4a-nofpu
++sh3.s                -isa=st40-300-nofpu       st40-300-nofpu
++sh3.s                -isa=st40-300-nofpu-up    st40-300-nofpu
++sh3.s                -isa=st40-300-or-sh4a     st40-300-or-sh4a
++sh3.s                -isa=st40-300-or-sh4a-up  st40-300-or-sh4a
++sh3.s                -isa=st40-300             st40-300
++sh3.s                -isa=st40-300-up          st40-300
+ sh3e.s               default-options           sh3e
+ sh3e.s               -dsp                      ERROR
+ sh3e.s               -isa=any                  sh3e
+@@ -640,6 +770,16 @@
+ sh3e.s               -isa=sh4a-up              sh4a
+ sh3e.s               -isa=sh4al-dsp            ERROR
+ sh3e.s               -isa=sh4al-dsp-up         ERROR
++sh3e.s               -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++sh3e.s               -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300
++sh3e.s               -isa=st40-300-nofpu-or-sh4a-nofpu ERROR
++sh3e.s               -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-or-sh4a
++sh3e.s               -isa=st40-300-nofpu       ERROR
++sh3e.s               -isa=st40-300-nofpu-up    st40-300
++sh3e.s               -isa=st40-300-or-sh4a     st40-300-or-sh4a
++sh3e.s               -isa=st40-300-or-sh4a-up  st40-300-or-sh4a
++sh3e.s               -isa=st40-300             st40-300
++sh3e.s               -isa=st40-300-up          st40-300
+ sh4-nofpu.s          default-options           sh4-nofpu
+ sh4-nofpu.s          -dsp                      sh4-nofpu
+ sh4-nofpu.s          -isa=any                  sh4-nofpu
+@@ -685,6 +825,16 @@
+ sh4-nofpu.s          -isa=sh4a-up              sh4a
+ sh4-nofpu.s          -isa=sh4al-dsp            sh4al-dsp
+ sh4-nofpu.s          -isa=sh4al-dsp-up         sh4al-dsp
++sh4-nofpu.s          -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++sh4-nofpu.s          -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300-nofpu
++sh4-nofpu.s          -isa=st40-300-nofpu-or-sh4a-nofpu st40-300-nofpu-or-sh4a-nofpu
++sh4-nofpu.s          -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-nofpu-or-sh4a-nofpu
++sh4-nofpu.s          -isa=st40-300-nofpu       st40-300-nofpu
++sh4-nofpu.s          -isa=st40-300-nofpu-up    st40-300-nofpu
++sh4-nofpu.s          -isa=st40-300-or-sh4a     st40-300-or-sh4a
++sh4-nofpu.s          -isa=st40-300-or-sh4a-up  st40-300-or-sh4a
++sh4-nofpu.s          -isa=st40-300             st40-300
++sh4-nofpu.s          -isa=st40-300-up          st40-300
+ sh4-nommu-nofpu.s    default-options           sh4-nommu-nofpu
+ sh4-nommu-nofpu.s    -dsp                      sh4-nommu-nofpu
+ sh4-nommu-nofpu.s    -isa=any                  sh4-nommu-nofpu
+@@ -730,6 +880,16 @@
+ sh4-nommu-nofpu.s    -isa=sh4a-up              sh4a
+ sh4-nommu-nofpu.s    -isa=sh4al-dsp            sh4al-dsp
+ sh4-nommu-nofpu.s    -isa=sh4al-dsp-up         sh4al-dsp
++sh4-nommu-nofpu.s    -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++sh4-nommu-nofpu.s    -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300-nofpu
++sh4-nommu-nofpu.s    -isa=st40-300-nofpu-or-sh4a-nofpu st40-300-nofpu-or-sh4a-nofpu
++sh4-nommu-nofpu.s    -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-nofpu-or-sh4a-nofpu
++sh4-nommu-nofpu.s    -isa=st40-300-nofpu       st40-300-nofpu
++sh4-nommu-nofpu.s    -isa=st40-300-nofpu-up    st40-300-nofpu
++sh4-nommu-nofpu.s    -isa=st40-300-or-sh4a     st40-300-or-sh4a
++sh4-nommu-nofpu.s    -isa=st40-300-or-sh4a-up  st40-300-or-sh4a
++sh4-nommu-nofpu.s    -isa=st40-300             st40-300
++sh4-nommu-nofpu.s    -isa=st40-300-up          st40-300
+ sh4.s                default-options           sh4
+ sh4.s                -dsp                      ERROR
+ sh4.s                -isa=any                  sh4
+@@ -775,6 +935,16 @@
+ sh4.s                -isa=sh4a-up              sh4a
+ sh4.s                -isa=sh4al-dsp            ERROR
+ sh4.s                -isa=sh4al-dsp-up         ERROR
++sh4.s                -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++sh4.s                -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300
++sh4.s                -isa=st40-300-nofpu-or-sh4a-nofpu ERROR
++sh4.s                -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-or-sh4a
++sh4.s                -isa=st40-300-nofpu       ERROR
++sh4.s                -isa=st40-300-nofpu-up    st40-300
++sh4.s                -isa=st40-300-or-sh4a     st40-300-or-sh4a
++sh4.s                -isa=st40-300-or-sh4a-up  st40-300-or-sh4a
++sh4.s                -isa=st40-300             st40-300
++sh4.s                -isa=st40-300-up          st40-300
+ sh4a-nofpu.s         default-options           sh4a-nofpu
+ sh4a-nofpu.s         -dsp                      sh4a-nofpu
+ sh4a-nofpu.s         -isa=any                  sh4a-nofpu
+@@ -820,6 +990,16 @@
+ sh4a-nofpu.s         -isa=sh4a-up              sh4a
+ sh4a-nofpu.s         -isa=sh4al-dsp            sh4al-dsp
+ sh4a-nofpu.s         -isa=sh4al-dsp-up         sh4al-dsp
++sh4a-nofpu.s         -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++sh4a-nofpu.s         -isa=st40-300-nofpu-or-sh2a-nofpu-up ERROR
++sh4a-nofpu.s         -isa=st40-300-nofpu-or-sh4a-nofpu ERROR
++sh4a-nofpu.s         -isa=st40-300-nofpu-or-sh4a-nofpu-up sh4a-nofpu
++sh4a-nofpu.s         -isa=st40-300-nofpu       ERROR
++sh4a-nofpu.s         -isa=st40-300-nofpu-up    ERROR
++sh4a-nofpu.s         -isa=st40-300-or-sh4a     ERROR
++sh4a-nofpu.s         -isa=st40-300-or-sh4a-up  sh4a
++sh4a-nofpu.s         -isa=st40-300             ERROR
++sh4a-nofpu.s         -isa=st40-300-up          ERROR
+ sh4a.s               default-options           sh4a
+ sh4a.s               -dsp                      ERROR
+ sh4a.s               -isa=any                  sh4a
+@@ -865,6 +1045,16 @@
+ sh4a.s               -isa=sh4a-up              sh4a
+ sh4a.s               -isa=sh4al-dsp            ERROR
+ sh4a.s               -isa=sh4al-dsp-up         ERROR
++sh4a.s               -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++sh4a.s               -isa=st40-300-nofpu-or-sh2a-nofpu-up ERROR
++sh4a.s               -isa=st40-300-nofpu-or-sh4a-nofpu ERROR
++sh4a.s               -isa=st40-300-nofpu-or-sh4a-nofpu-up sh4a
++sh4a.s               -isa=st40-300-nofpu       ERROR
++sh4a.s               -isa=st40-300-nofpu-up    ERROR
++sh4a.s               -isa=st40-300-or-sh4a     ERROR
++sh4a.s               -isa=st40-300-or-sh4a-up  sh4a
++sh4a.s               -isa=st40-300             ERROR
++sh4a.s               -isa=st40-300-up          ERROR
+ sh4al-dsp.s          default-options           ERROR
+ sh4al-dsp.s          -dsp                      sh4al-dsp
+ sh4al-dsp.s          -isa=any                  sh4al-dsp
+@@ -910,3 +1100,288 @@
+ sh4al-dsp.s          -isa=sh4a-up              ERROR
+ sh4al-dsp.s          -isa=sh4al-dsp            sh4al-dsp
+ sh4al-dsp.s          -isa=sh4al-dsp-up         sh4al-dsp
++sh4al-dsp.s          -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++sh4al-dsp.s          -isa=st40-300-nofpu-or-sh2a-nofpu-up ERROR
++sh4al-dsp.s          -isa=st40-300-nofpu-or-sh4a-nofpu ERROR
++sh4al-dsp.s          -isa=st40-300-nofpu-or-sh4a-nofpu-up sh4al-dsp
++sh4al-dsp.s          -isa=st40-300-nofpu       ERROR
++sh4al-dsp.s          -isa=st40-300-nofpu-up    ERROR
++sh4al-dsp.s          -isa=st40-300-or-sh4a     ERROR
++sh4al-dsp.s          -isa=st40-300-or-sh4a-up  ERROR
++sh4al-dsp.s          -isa=st40-300             ERROR
++sh4al-dsp.s          -isa=st40-300-up          ERROR
++st40-300-nofpu-or-sh2a-nofpu.s default-options           st40-300-nofpu-or-sh2a-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -dsp                      st40-300-nofpu-or-sh2a-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=any                  st40-300-nofpu-or-sh2a-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=dsp                  st40-300-nofpu-or-sh2a-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=fp                   st40-300-nofpu-or-sh2a-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh-dsp               ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh-dsp-up            ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh                   ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh-up                st40-300-nofpu-or-sh2a-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh2                  ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh2-up               st40-300-nofpu-or-sh2a-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh2a-nofpu-or-sh3-nommu ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh2a-nofpu-or-sh3-nommu-up st40-300-nofpu-or-sh2a-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh2a-nofpu-or-sh4-nommu-nofpu ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh2a-nofpu-or-sh4-nommu-nofpu-up st40-300-nofpu-or-sh2a-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh2a-nofpu           sh2a-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh2a-nofpu-up        sh2a-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh2a-or-sh3e         ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh2a-or-sh3e-up      st40-300
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh2a-or-sh4          ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh2a-or-sh4-up       st40-300
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh2a                 sh2a
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh2a-up              sh2a
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh2e                 ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh2e-up              st40-300
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh3-dsp              ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh3-dsp-up           ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh3-nommu            ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh3-nommu-up         st40-300-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh3                  ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh3-up               st40-300-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh3e                 ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh3e-up              st40-300
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh4-nofpu            ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh4-nofpu-up         st40-300-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh4-nommu-nofpu      ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh4-nommu-nofpu-up   st40-300-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh4                  ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh4-up               st40-300
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh4a-nofpu           ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh4a-nofpu-up        ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh4a                 ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh4a-up              ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh4al-dsp            ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=sh4al-dsp-up         ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=st40-300-nofpu-or-sh2a-nofpu st40-300-nofpu-or-sh2a-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300-nofpu-or-sh2a-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=st40-300-nofpu-or-sh4a-nofpu ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=st40-300-nofpu       st40-300-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=st40-300-nofpu-up    st40-300-nofpu
++st40-300-nofpu-or-sh2a-nofpu.s -isa=st40-300-or-sh4a     ERROR
++st40-300-nofpu-or-sh2a-nofpu.s -isa=st40-300-or-sh4a-up  st40-300
++st40-300-nofpu-or-sh2a-nofpu.s -isa=st40-300             st40-300
++st40-300-nofpu-or-sh2a-nofpu.s -isa=st40-300-up          st40-300
++st40-300-nofpu-or-sh4a-nofpu.s default-options           st40-300-nofpu-or-sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -dsp                      st40-300-nofpu-or-sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=any                  st40-300-nofpu-or-sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=dsp                  st40-300-nofpu-or-sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=fp                   st40-300-nofpu-or-sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh-dsp               ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh-dsp-up            sh4al-dsp
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh                   ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh-up                st40-300-nofpu-or-sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh2                  ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh2-up               st40-300-nofpu-or-sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh2a-nofpu-or-sh3-nommu ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh2a-nofpu-or-sh3-nommu-up st40-300-nofpu-or-sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh2a-nofpu-or-sh4-nommu-nofpu ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh2a-nofpu-or-sh4-nommu-nofpu-up st40-300-nofpu-or-sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh2a-nofpu           ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh2a-nofpu-up        ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh2a-or-sh3e         ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh2a-or-sh3e-up      st40-300-or-sh4a
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh2a-or-sh4          ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh2a-or-sh4-up       st40-300-or-sh4a
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh2a                 ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh2a-up              ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh2e                 ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh2e-up              st40-300-or-sh4a
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh3-dsp              ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh3-dsp-up           sh4al-dsp
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh3-nommu            ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh3-nommu-up         st40-300-nofpu-or-sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh3                  ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh3-up               st40-300-nofpu-or-sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh3e                 ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh3e-up              st40-300-or-sh4a
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh4-nofpu            ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh4-nofpu-up         st40-300-nofpu-or-sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh4-nommu-nofpu      ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh4-nommu-nofpu-up   st40-300-nofpu-or-sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh4                  ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh4-up               st40-300-or-sh4a
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh4a-nofpu           sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh4a-nofpu-up        sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh4a                 sh4a
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh4a-up              sh4a
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh4al-dsp            sh4al-dsp
++st40-300-nofpu-or-sh4a-nofpu.s -isa=sh4al-dsp-up         sh4al-dsp
++st40-300-nofpu-or-sh4a-nofpu.s -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++st40-300-nofpu-or-sh4a-nofpu.s -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=st40-300-nofpu-or-sh4a-nofpu st40-300-nofpu-or-sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-nofpu-or-sh4a-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=st40-300-nofpu       st40-300-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=st40-300-nofpu-up    st40-300-nofpu
++st40-300-nofpu-or-sh4a-nofpu.s -isa=st40-300-or-sh4a     st40-300-or-sh4a
++st40-300-nofpu-or-sh4a-nofpu.s -isa=st40-300-or-sh4a-up  st40-300-or-sh4a
++st40-300-nofpu-or-sh4a-nofpu.s -isa=st40-300             st40-300
++st40-300-nofpu-or-sh4a-nofpu.s -isa=st40-300-up          st40-300
++st40-300-nofpu.s     default-options           st40-300-nofpu
++st40-300-nofpu.s     -dsp                      st40-300-nofpu
++st40-300-nofpu.s     -isa=any                  st40-300-nofpu
++st40-300-nofpu.s     -isa=dsp                  st40-300-nofpu
++st40-300-nofpu.s     -isa=fp                   st40-300-nofpu
++st40-300-nofpu.s     -isa=sh-dsp               ERROR
++st40-300-nofpu.s     -isa=sh-dsp-up            ERROR
++st40-300-nofpu.s     -isa=sh                   ERROR
++st40-300-nofpu.s     -isa=sh-up                st40-300-nofpu
++st40-300-nofpu.s     -isa=sh2                  ERROR
++st40-300-nofpu.s     -isa=sh2-up               st40-300-nofpu
++st40-300-nofpu.s     -isa=sh2a-nofpu-or-sh3-nommu ERROR
++st40-300-nofpu.s     -isa=sh2a-nofpu-or-sh3-nommu-up st40-300-nofpu
++st40-300-nofpu.s     -isa=sh2a-nofpu-or-sh4-nommu-nofpu ERROR
++st40-300-nofpu.s     -isa=sh2a-nofpu-or-sh4-nommu-nofpu-up st40-300-nofpu
++st40-300-nofpu.s     -isa=sh2a-nofpu           ERROR
++st40-300-nofpu.s     -isa=sh2a-nofpu-up        ERROR
++st40-300-nofpu.s     -isa=sh2a-or-sh3e         ERROR
++st40-300-nofpu.s     -isa=sh2a-or-sh3e-up      st40-300
++st40-300-nofpu.s     -isa=sh2a-or-sh4          ERROR
++st40-300-nofpu.s     -isa=sh2a-or-sh4-up       st40-300
++st40-300-nofpu.s     -isa=sh2a                 ERROR
++st40-300-nofpu.s     -isa=sh2a-up              ERROR
++st40-300-nofpu.s     -isa=sh2e                 ERROR
++st40-300-nofpu.s     -isa=sh2e-up              st40-300
++st40-300-nofpu.s     -isa=sh3-dsp              ERROR
++st40-300-nofpu.s     -isa=sh3-dsp-up           ERROR
++st40-300-nofpu.s     -isa=sh3-nommu            ERROR
++st40-300-nofpu.s     -isa=sh3-nommu-up         st40-300-nofpu
++st40-300-nofpu.s     -isa=sh3                  ERROR
++st40-300-nofpu.s     -isa=sh3-up               st40-300-nofpu
++st40-300-nofpu.s     -isa=sh3e                 ERROR
++st40-300-nofpu.s     -isa=sh3e-up              st40-300
++st40-300-nofpu.s     -isa=sh4-nofpu            ERROR
++st40-300-nofpu.s     -isa=sh4-nofpu-up         st40-300-nofpu
++st40-300-nofpu.s     -isa=sh4-nommu-nofpu      ERROR
++st40-300-nofpu.s     -isa=sh4-nommu-nofpu-up   st40-300-nofpu
++st40-300-nofpu.s     -isa=sh4                  ERROR
++st40-300-nofpu.s     -isa=sh4-up               st40-300
++st40-300-nofpu.s     -isa=sh4a-nofpu           ERROR
++st40-300-nofpu.s     -isa=sh4a-nofpu-up        ERROR
++st40-300-nofpu.s     -isa=sh4a                 ERROR
++st40-300-nofpu.s     -isa=sh4a-up              ERROR
++st40-300-nofpu.s     -isa=sh4al-dsp            ERROR
++st40-300-nofpu.s     -isa=sh4al-dsp-up         ERROR
++st40-300-nofpu.s     -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++st40-300-nofpu.s     -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300-nofpu
++st40-300-nofpu.s     -isa=st40-300-nofpu-or-sh4a-nofpu ERROR
++st40-300-nofpu.s     -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-nofpu
++st40-300-nofpu.s     -isa=st40-300-nofpu       st40-300-nofpu
++st40-300-nofpu.s     -isa=st40-300-nofpu-up    st40-300-nofpu
++st40-300-nofpu.s     -isa=st40-300-or-sh4a     ERROR
++st40-300-nofpu.s     -isa=st40-300-or-sh4a-up  st40-300
++st40-300-nofpu.s     -isa=st40-300             st40-300
++st40-300-nofpu.s     -isa=st40-300-up          st40-300
++st40-300-or-sh4a.s   default-options           st40-300-or-sh4a
++st40-300-or-sh4a.s   -dsp                      ERROR
++st40-300-or-sh4a.s   -isa=any                  st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=dsp                  ERROR
++st40-300-or-sh4a.s   -isa=fp                   st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=sh-dsp               ERROR
++st40-300-or-sh4a.s   -isa=sh-dsp-up            ERROR
++st40-300-or-sh4a.s   -isa=sh                   ERROR
++st40-300-or-sh4a.s   -isa=sh-up                st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=sh2                  ERROR
++st40-300-or-sh4a.s   -isa=sh2-up               st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=sh2a-nofpu-or-sh3-nommu ERROR
++st40-300-or-sh4a.s   -isa=sh2a-nofpu-or-sh3-nommu-up st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=sh2a-nofpu-or-sh4-nommu-nofpu ERROR
++st40-300-or-sh4a.s   -isa=sh2a-nofpu-or-sh4-nommu-nofpu-up st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=sh2a-nofpu           ERROR
++st40-300-or-sh4a.s   -isa=sh2a-nofpu-up        ERROR
++st40-300-or-sh4a.s   -isa=sh2a-or-sh3e         ERROR
++st40-300-or-sh4a.s   -isa=sh2a-or-sh3e-up      st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=sh2a-or-sh4          ERROR
++st40-300-or-sh4a.s   -isa=sh2a-or-sh4-up       st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=sh2a                 ERROR
++st40-300-or-sh4a.s   -isa=sh2a-up              ERROR
++st40-300-or-sh4a.s   -isa=sh2e                 ERROR
++st40-300-or-sh4a.s   -isa=sh2e-up              st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=sh3-dsp              ERROR
++st40-300-or-sh4a.s   -isa=sh3-dsp-up           ERROR
++st40-300-or-sh4a.s   -isa=sh3-nommu            ERROR
++st40-300-or-sh4a.s   -isa=sh3-nommu-up         st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=sh3                  ERROR
++st40-300-or-sh4a.s   -isa=sh3-up               st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=sh3e                 ERROR
++st40-300-or-sh4a.s   -isa=sh3e-up              st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=sh4-nofpu            ERROR
++st40-300-or-sh4a.s   -isa=sh4-nofpu-up         st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=sh4-nommu-nofpu      ERROR
++st40-300-or-sh4a.s   -isa=sh4-nommu-nofpu-up   st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=sh4                  ERROR
++st40-300-or-sh4a.s   -isa=sh4-up               st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=sh4a-nofpu           ERROR
++st40-300-or-sh4a.s   -isa=sh4a-nofpu-up        sh4a
++st40-300-or-sh4a.s   -isa=sh4a                 sh4a
++st40-300-or-sh4a.s   -isa=sh4a-up              sh4a
++st40-300-or-sh4a.s   -isa=sh4al-dsp            ERROR
++st40-300-or-sh4a.s   -isa=sh4al-dsp-up         ERROR
++st40-300-or-sh4a.s   -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++st40-300-or-sh4a.s   -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300
++st40-300-or-sh4a.s   -isa=st40-300-nofpu-or-sh4a-nofpu ERROR
++st40-300-or-sh4a.s   -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=st40-300-nofpu       ERROR
++st40-300-or-sh4a.s   -isa=st40-300-nofpu-up    st40-300
++st40-300-or-sh4a.s   -isa=st40-300-or-sh4a     st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=st40-300-or-sh4a-up  st40-300-or-sh4a
++st40-300-or-sh4a.s   -isa=st40-300             st40-300
++st40-300-or-sh4a.s   -isa=st40-300-up          st40-300
++st40-300.s           default-options           st40-300
++st40-300.s           -dsp                      ERROR
++st40-300.s           -isa=any                  st40-300
++st40-300.s           -isa=dsp                  ERROR
++st40-300.s           -isa=fp                   st40-300
++st40-300.s           -isa=sh-dsp               ERROR
++st40-300.s           -isa=sh-dsp-up            ERROR
++st40-300.s           -isa=sh                   ERROR
++st40-300.s           -isa=sh-up                st40-300
++st40-300.s           -isa=sh2                  ERROR
++st40-300.s           -isa=sh2-up               st40-300
++st40-300.s           -isa=sh2a-nofpu-or-sh3-nommu ERROR
++st40-300.s           -isa=sh2a-nofpu-or-sh3-nommu-up st40-300
++st40-300.s           -isa=sh2a-nofpu-or-sh4-nommu-nofpu ERROR
++st40-300.s           -isa=sh2a-nofpu-or-sh4-nommu-nofpu-up st40-300
++st40-300.s           -isa=sh2a-nofpu           ERROR
++st40-300.s           -isa=sh2a-nofpu-up        ERROR
++st40-300.s           -isa=sh2a-or-sh3e         ERROR
++st40-300.s           -isa=sh2a-or-sh3e-up      st40-300
++st40-300.s           -isa=sh2a-or-sh4          ERROR
++st40-300.s           -isa=sh2a-or-sh4-up       st40-300
++st40-300.s           -isa=sh2a                 ERROR
++st40-300.s           -isa=sh2a-up              ERROR
++st40-300.s           -isa=sh2e                 ERROR
++st40-300.s           -isa=sh2e-up              st40-300
++st40-300.s           -isa=sh3-dsp              ERROR
++st40-300.s           -isa=sh3-dsp-up           ERROR
++st40-300.s           -isa=sh3-nommu            ERROR
++st40-300.s           -isa=sh3-nommu-up         st40-300
++st40-300.s           -isa=sh3                  ERROR
++st40-300.s           -isa=sh3-up               st40-300
++st40-300.s           -isa=sh3e                 ERROR
++st40-300.s           -isa=sh3e-up              st40-300
++st40-300.s           -isa=sh4-nofpu            ERROR
++st40-300.s           -isa=sh4-nofpu-up         st40-300
++st40-300.s           -isa=sh4-nommu-nofpu      ERROR
++st40-300.s           -isa=sh4-nommu-nofpu-up   st40-300
++st40-300.s           -isa=sh4                  ERROR
++st40-300.s           -isa=sh4-up               st40-300
++st40-300.s           -isa=sh4a-nofpu           ERROR
++st40-300.s           -isa=sh4a-nofpu-up        ERROR
++st40-300.s           -isa=sh4a                 ERROR
++st40-300.s           -isa=sh4a-up              ERROR
++st40-300.s           -isa=sh4al-dsp            ERROR
++st40-300.s           -isa=sh4al-dsp-up         ERROR
++st40-300.s           -isa=st40-300-nofpu-or-sh2a-nofpu ERROR
++st40-300.s           -isa=st40-300-nofpu-or-sh2a-nofpu-up st40-300
++st40-300.s           -isa=st40-300-nofpu-or-sh4a-nofpu ERROR
++st40-300.s           -isa=st40-300-nofpu-or-sh4a-nofpu-up st40-300
++st40-300.s           -isa=st40-300-nofpu       ERROR
++st40-300.s           -isa=st40-300-nofpu-up    st40-300
++st40-300.s           -isa=st40-300-or-sh4a     ERROR
++st40-300.s           -isa=st40-300-or-sh4a-up  st40-300
++st40-300.s           -isa=st40-300             st40-300
++st40-300.s           -isa=st40-300-up          st40-300
+diff -Naur binutils-2.18.50.0.8/gas/testsuite/gas/sh/arch/st40-300-nofpu-or-sh2a-nofpu.s binutils-2.18.50.0.8-stm/gas/testsuite/gas/sh/arch/st40-300-nofpu-or-sh2a-nofpu.s
+--- binutils-2.18.50.0.8/gas/testsuite/gas/sh/arch/st40-300-nofpu-or-sh2a-nofpu.s	1970-01-01 01:00:00.000000000 +0100
++++ binutils-2.18.50.0.8-stm/gas/testsuite/gas/sh/arch/st40-300-nofpu-or-sh2a-nofpu.s	2008-07-22 16:54:24.000000000 +0100
+@@ -0,0 +1,170 @@
++! Generated file. DO NOT EDIT.
++!
++! This file was generated by gas/testsuite/gas/sh/arch/arch.exp .
++! This file should contain every instruction valid on
++! architecture st40-300-nofpu-or-sh2a-nofpu but no more.
++! If the tests are failing because the expected results
++! have changed then run 'make check' and copy the new file
++! from <objdir>/gas/testsuite/st40-300-nofpu-or-sh2a-nofpu.s
++! to   <srcdir>/gas/testsuite/gas/sh/arch/st40-300-nofpu-or-sh2a-nofpu.s .
++! Make sure there are no unexpected or missing instructions.
++
++	.section .text
++st40_300_nofpu_or_sh2a_nofpu:
++! Instructions introduced into st40-300-nofpu-or-sh2a-nofpu
++	mulr R0,r4                ;!/* 0100nnnn10000000 mulr R0,<REG_N> */       {"mulr",{A_R0,A_REG_N},{HEX_4,REG_N,HEX_8,HEX_0}, arch_st40_300_nofpu_or_sh2a_nofpu_up}
++
++! Instructions inherited from ancestors: sh sh2 sh2a-nofpu-or-sh3-nommu sh2a-nofpu-or-sh4-nommu-nofpu
++	add #4,r4                 ;!/* 0111nnnni8*1.... add #<imm>,<REG_N>  */{"add",{A_IMM,A_REG_N},{HEX_7,REG_N,IMM0_8}, arch_sh_up}
++	add r5,r4                 ;!/* 0011nnnnmmmm1100 add <REG_M>,<REG_N> */{"add",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_C}, arch_sh_up}
++	addc r5,r4                ;!/* 0011nnnnmmmm1110 addc <REG_M>,<REG_N>*/{"addc",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_E}, arch_sh_up}
++	addv r5,r4                ;!/* 0011nnnnmmmm1111 addv <REG_M>,<REG_N>*/{"addv",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_F}, arch_sh_up}
++	and #4,R0                 ;!/* 11001001i8*1.... and #<imm>,R0       */{"and",{A_IMM,A_R0},{HEX_C,HEX_9,IMM0_8}, arch_sh_up}
++	and r5,r4                 ;!/* 0010nnnnmmmm1001 and <REG_M>,<REG_N> */{"and",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_9}, arch_sh_up}
++	and.b #4,@(R0,GBR)        ;!/* 11001101i8*1.... and.b #<imm>,@(R0,GBR)*/{"and.b",{A_IMM,A_R0_GBR},{HEX_C,HEX_D,IMM0_8}, arch_sh_up}
++	bra .+8                   ;!/* 1010i12......... bra <bdisp12>       */{"bra",{A_BDISP12},{HEX_A,BRANCH_12}, arch_sh_up}
++	bsr .+8                   ;!/* 1011i12......... bsr <bdisp12>       */{"bsr",{A_BDISP12},{HEX_B,BRANCH_12}, arch_sh_up}
++	bt .+8                    ;!/* 10001001i8p1.... bt <bdisp8>         */{"bt",{A_BDISP8},{HEX_8,HEX_9,BRANCH_8}, arch_sh_up}
++	bf .+8                    ;!/* 10001011i8p1.... bf <bdisp8>         */{"bf",{A_BDISP8},{HEX_8,HEX_B,BRANCH_8}, arch_sh_up}
++	bt.s .+8                  ;!/* 10001101i8p1.... bt.s <bdisp8>       */{"bt.s",{A_BDISP8},{HEX_8,HEX_D,BRANCH_8}, arch_sh2_up}
++	bt/s .+8                  ;!/* 10001101i8p1.... bt/s <bdisp8>       */{"bt/s",{A_BDISP8},{HEX_8,HEX_D,BRANCH_8}, arch_sh2_up}
++	bf.s .+8                  ;!/* 10001111i8p1.... bf.s <bdisp8>       */{"bf.s",{A_BDISP8},{HEX_8,HEX_F,BRANCH_8}, arch_sh2_up}
++	bf/s .+8                  ;!/* 10001111i8p1.... bf/s <bdisp8>       */{"bf/s",{A_BDISP8},{HEX_8,HEX_F,BRANCH_8}, arch_sh2_up}
++	clrmac                    ;!/* 0000000000101000 clrmac              */{"clrmac",{0},{HEX_0,HEX_0,HEX_2,HEX_8}, arch_sh_up}
++	clrs                      ;!/* 0000000001001000 clrs                */{"clrs",{0},{HEX_0,HEX_0,HEX_4,HEX_8}, arch_sh_up}
++	clrt                      ;!/* 0000000000001000 clrt                */{"clrt",{0},{HEX_0,HEX_0,HEX_0,HEX_8}, arch_sh_up}
++	cmp/eq #4,R0              ;!/* 10001000i8*1.... cmp/eq #<imm>,R0    */{"cmp/eq",{A_IMM,A_R0},{HEX_8,HEX_8,IMM0_8}, arch_sh_up}
++	cmp/eq r5,r4              ;!/* 0011nnnnmmmm0000 cmp/eq <REG_M>,<REG_N>*/{"cmp/eq",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_0}, arch_sh_up}
++	cmp/ge r5,r4              ;!/* 0011nnnnmmmm0011 cmp/ge <REG_M>,<REG_N>*/{"cmp/ge",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_3}, arch_sh_up}
++	cmp/gt r5,r4              ;!/* 0011nnnnmmmm0111 cmp/gt <REG_M>,<REG_N>*/{"cmp/gt",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_7}, arch_sh_up}
++	cmp/hi r5,r4              ;!/* 0011nnnnmmmm0110 cmp/hi <REG_M>,<REG_N>*/{"cmp/hi",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_6}, arch_sh_up}
++	cmp/hs r5,r4              ;!/* 0011nnnnmmmm0010 cmp/hs <REG_M>,<REG_N>*/{"cmp/hs",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_2}, arch_sh_up}
++	cmp/pl r4                 ;!/* 0100nnnn00010101 cmp/pl <REG_N>      */{"cmp/pl",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_5}, arch_sh_up}
++	cmp/pz r4                 ;!/* 0100nnnn00010001 cmp/pz <REG_N>      */{"cmp/pz",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_1}, arch_sh_up}
++	cmp/str r5,r4             ;!/* 0010nnnnmmmm1100 cmp/str <REG_M>,<REG_N>*/{"cmp/str",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_C}, arch_sh_up}
++	div0s r5,r4               ;!/* 0010nnnnmmmm0111 div0s <REG_M>,<REG_N>*/{"div0s",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_7}, arch_sh_up}
++	div0u                     ;!/* 0000000000011001 div0u               */{"div0u",{0},{HEX_0,HEX_0,HEX_1,HEX_9}, arch_sh_up}
++	div1 r5,r4                ;!/* 0011nnnnmmmm0100 div1 <REG_M>,<REG_N>*/{"div1",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_4}, arch_sh_up}
++	exts.b r5,r4              ;!/* 0110nnnnmmmm1110 exts.b <REG_M>,<REG_N>*/{"exts.b",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_E}, arch_sh_up}
++	exts.w r5,r4              ;!/* 0110nnnnmmmm1111 exts.w <REG_M>,<REG_N>*/{"exts.w",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_F}, arch_sh_up}
++	extu.b r5,r4              ;!/* 0110nnnnmmmm1100 extu.b <REG_M>,<REG_N>*/{"extu.b",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_C}, arch_sh_up}
++	extu.w r5,r4              ;!/* 0110nnnnmmmm1101 extu.w <REG_M>,<REG_N>*/{"extu.w",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_D}, arch_sh_up}
++	jmp @r4                   ;!/* 0100nnnn00101011 jmp @<REG_N>        */{"jmp",{A_IND_N},{HEX_4,REG_N,HEX_2,HEX_B}, arch_sh_up}
++	jsr @r4                   ;!/* 0100nnnn00001011 jsr @<REG_N>        */{"jsr",{A_IND_N},{HEX_4,REG_N,HEX_0,HEX_B}, arch_sh_up}
++	ldc r4,SR                 ;!/* 0100nnnn00001110 ldc <REG_N>,SR      */{"ldc",{A_REG_N,A_SR},{HEX_4,REG_N,HEX_0,HEX_E}, arch_sh_up}
++	ldc r4,GBR                ;!/* 0100nnnn00011110 ldc <REG_N>,GBR     */{"ldc",{A_REG_N,A_GBR},{HEX_4,REG_N,HEX_1,HEX_E}, arch_sh_up}
++	ldc r4,VBR                ;!/* 0100nnnn00101110 ldc <REG_N>,VBR     */{"ldc",{A_REG_N,A_VBR},{HEX_4,REG_N,HEX_2,HEX_E}, arch_sh_up}
++	ldc.l @r4+,SR             ;!/* 0100nnnn00000111 ldc.l @<REG_N>+,SR  */{"ldc.l",{A_INC_N,A_SR},{HEX_4,REG_N,HEX_0,HEX_7}, arch_sh_up}
++	ldc.l @r4+,GBR            ;!/* 0100nnnn00010111 ldc.l @<REG_N>+,GBR */{"ldc.l",{A_INC_N,A_GBR},{HEX_4,REG_N,HEX_1,HEX_7}, arch_sh_up}
++	ldc.l @r4+,VBR            ;!/* 0100nnnn00100111 ldc.l @<REG_N>+,VBR */{"ldc.l",{A_INC_N,A_VBR},{HEX_4,REG_N,HEX_2,HEX_7}, arch_sh_up}
++	lds r4,MACH               ;!/* 0100nnnn00001010 lds <REG_N>,MACH    */{"lds",{A_REG_N,A_MACH},{HEX_4,REG_N,HEX_0,HEX_A}, arch_sh_up}
++	lds r4,MACL               ;!/* 0100nnnn00011010 lds <REG_N>,MACL    */{"lds",{A_REG_N,A_MACL},{HEX_4,REG_N,HEX_1,HEX_A}, arch_sh_up}
++	lds r4,PR                 ;!/* 0100nnnn00101010 lds <REG_N>,PR      */{"lds",{A_REG_N,A_PR},{HEX_4,REG_N,HEX_2,HEX_A}, arch_sh_up}
++	lds.l @r4+,MACH           ;!/* 0100nnnn00000110 lds.l @<REG_N>+,MACH*/{"lds.l",{A_INC_N,A_MACH},{HEX_4,REG_N,HEX_0,HEX_6}, arch_sh_up}
++	lds.l @r4+,MACL           ;!/* 0100nnnn00010110 lds.l @<REG_N>+,MACL*/{"lds.l",{A_INC_N,A_MACL},{HEX_4,REG_N,HEX_1,HEX_6}, arch_sh_up}
++	lds.l @r4+,PR             ;!/* 0100nnnn00100110 lds.l @<REG_N>+,PR  */{"lds.l",{A_INC_N,A_PR},{HEX_4,REG_N,HEX_2,HEX_6}, arch_sh_up}
++	mac.w @r5+,@r4+           ;!/* 0100nnnnmmmm1111 mac.w @<REG_M>+,@<REG_N>+*/{"mac.w",{A_INC_M,A_INC_N},{HEX_4,REG_N,REG_M,HEX_F}, arch_sh_up}
++	mov #4,r4                 ;!/* 1110nnnni8*1.... mov #<imm>,<REG_N>  */{"mov",{A_IMM,A_REG_N},{HEX_E,REG_N,IMM0_8}, arch_sh_up}
++	mov r5,r4                 ;!/* 0110nnnnmmmm0011 mov <REG_M>,<REG_N> */{"mov",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_3}, arch_sh_up}
++	mov.b r5,@(R0,r4)         ;!/* 0000nnnnmmmm0100 mov.b <REG_M>,@(R0,<REG_N>)*/{"mov.b",{ A_REG_M,A_IND_R0_REG_N},{HEX_0,REG_N,REG_M,HEX_4}, arch_sh_up}
++	mov.b r5,@-r4             ;!/* 0010nnnnmmmm0100 mov.b <REG_M>,@-<REG_N>*/{"mov.b",{ A_REG_M,A_DEC_N},{HEX_2,REG_N,REG_M,HEX_4}, arch_sh_up}
++	mov.b r5,@r4              ;!/* 0010nnnnmmmm0000 mov.b <REG_M>,@<REG_N>*/{"mov.b",{ A_REG_M,A_IND_N},{HEX_2,REG_N,REG_M,HEX_0}, arch_sh_up}
++	mov.b @(8,r5),R0          ;!/* 10000100mmmmi4*1 mov.b @(<disp>,<REG_M>),R0*/{"mov.b",{A_DISP_REG_M,A_R0},{HEX_8,HEX_4,REG_M,IMM0_4}, arch_sh_up}
++	mov.b @(8,GBR),R0         ;!/* 11000100i8*1.... mov.b @(<disp>,GBR),R0*/{"mov.b",{A_DISP_GBR,A_R0},{HEX_C,HEX_4,IMM0_8}, arch_sh_up}
++	mov.b @(R0,r5),r4         ;!/* 0000nnnnmmmm1100 mov.b @(R0,<REG_M>),<REG_N>*/{"mov.b",{A_IND_R0_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_C}, arch_sh_up}
++	mov.b @r5+,r4             ;!/* 0110nnnnmmmm0100 mov.b @<REG_M>+,<REG_N>*/{"mov.b",{A_INC_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_4}, arch_sh_up}
++	mov.b @r5,r4              ;!/* 0110nnnnmmmm0000 mov.b @<REG_M>,<REG_N>*/{"mov.b",{A_IND_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_0}, arch_sh_up}
++	mov.b R0,@(8,r5)          ;!/* 10000000mmmmi4*1 mov.b R0,@(<disp>,<REG_M>)*/{"mov.b",{A_R0,A_DISP_REG_M},{HEX_8,HEX_0,REG_M,IMM1_4}, arch_sh_up}
++	mov.b R0,@(8,GBR)         ;!/* 11000000i8*1.... mov.b R0,@(<disp>,GBR)*/{"mov.b",{A_R0,A_DISP_GBR},{HEX_C,HEX_0,IMM1_8}, arch_sh_up}
++	mov.l r5,@(8,r4)          ;!/* 0001nnnnmmmmi4*4 mov.l <REG_M>,@(<disp>,<REG_N>)*/{"mov.l",{ A_REG_M,A_DISP_REG_N},{HEX_1,REG_N,REG_M,IMM1_4BY4}, arch_sh_up}
++	mov.l r5,@(R0,r4)         ;!/* 0000nnnnmmmm0110 mov.l <REG_M>,@(R0,<REG_N>)*/{"mov.l",{ A_REG_M,A_IND_R0_REG_N},{HEX_0,REG_N,REG_M,HEX_6}, arch_sh_up}
++	mov.l r5,@-r4             ;!/* 0010nnnnmmmm0110 mov.l <REG_M>,@-<REG_N>*/{"mov.l",{ A_REG_M,A_DEC_N},{HEX_2,REG_N,REG_M,HEX_6}, arch_sh_up}
++	mov.l r5,@r4              ;!/* 0010nnnnmmmm0010 mov.l <REG_M>,@<REG_N>*/{"mov.l",{ A_REG_M,A_IND_N},{HEX_2,REG_N,REG_M,HEX_2}, arch_sh_up}
++	mov.l @(8,r5),r4          ;!/* 0101nnnnmmmmi4*4 mov.l @(<disp>,<REG_M>),<REG_N>*/{"mov.l",{A_DISP_REG_M,A_REG_N},{HEX_5,REG_N,REG_M,IMM0_4BY4}, arch_sh_up}
++	mov.l @(8,GBR),R0         ;!/* 11000110i8*4.... mov.l @(<disp>,GBR),R0*/{"mov.l",{A_DISP_GBR,A_R0},{HEX_C,HEX_6,IMM0_8BY4}, arch_sh_up}
++	mov.l @(end-.,PC),r4      ;!/* 1101nnnni8p4.... mov.l @(<adisp>,PC),<REG_N>*/{"mov.l",{A_DISP_PC,A_REG_N},{HEX_D,REG_N,PCRELIMM_8BY4}, arch_sh_up}
++	mov.l @(R0,r5),r4         ;!/* 0000nnnnmmmm1110 mov.l @(R0,<REG_M>),<REG_N>*/{"mov.l",{A_IND_R0_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_E}, arch_sh_up}
++	mov.l @r5+,r4             ;!/* 0110nnnnmmmm0110 mov.l @<REG_M>+,<REG_N>*/{"mov.l",{A_INC_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_6}, arch_sh_up}
++	mov.l @r5,r4              ;!/* 0110nnnnmmmm0010 mov.l @<REG_M>,<REG_N>*/{"mov.l",{A_IND_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_2}, arch_sh_up}
++	mov.l R0,@(8,GBR)         ;!/* 11000010i8*4.... mov.l R0,@(<disp>,GBR)*/{"mov.l",{A_R0,A_DISP_GBR},{HEX_C,HEX_2,IMM1_8BY4}, arch_sh_up}
++	mov.w r5,@(R0,r4)         ;!/* 0000nnnnmmmm0101 mov.w <REG_M>,@(R0,<REG_N>)*/{"mov.w",{ A_REG_M,A_IND_R0_REG_N},{HEX_0,REG_N,REG_M,HEX_5}, arch_sh_up}
++	mov.w r5,@-r4             ;!/* 0010nnnnmmmm0101 mov.w <REG_M>,@-<REG_N>*/{"mov.w",{ A_REG_M,A_DEC_N},{HEX_2,REG_N,REG_M,HEX_5}, arch_sh_up}
++	mov.w r5,@r4              ;!/* 0010nnnnmmmm0001 mov.w <REG_M>,@<REG_N>*/{"mov.w",{ A_REG_M,A_IND_N},{HEX_2,REG_N,REG_M,HEX_1}, arch_sh_up}
++	mov.w @(8,r5),R0          ;!/* 10000101mmmmi4*2 mov.w @(<disp>,<REG_M>),R0*/{"mov.w",{A_DISP_REG_M,A_R0},{HEX_8,HEX_5,REG_M,IMM0_4BY2}, arch_sh_up}
++	mov.w @(8,GBR),R0         ;!/* 11000101i8*2.... mov.w @(<disp>,GBR),R0*/{"mov.w",{A_DISP_GBR,A_R0},{HEX_C,HEX_5,IMM0_8BY2}, arch_sh_up}
++	mov.w @(8,PC),r4          ;!/* 1001nnnni8p2.... mov.w @(<disp>,PC),<REG_N>*/{"mov.w",{A_DISP_PC,A_REG_N},{HEX_9,REG_N,PCRELIMM_8BY2}, arch_sh_up}
++	mov.w @(R0,r5),r4         ;!/* 0000nnnnmmmm1101 mov.w @(R0,<REG_M>),<REG_N>*/{"mov.w",{A_IND_R0_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_D}, arch_sh_up}
++	mov.w @r5+,r4             ;!/* 0110nnnnmmmm0101 mov.w @<REG_M>+,<REG_N>*/{"mov.w",{A_INC_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_5}, arch_sh_up}
++	mov.w @r5,r4              ;!/* 0110nnnnmmmm0001 mov.w @<REG_M>,<REG_N>*/{"mov.w",{A_IND_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_1}, arch_sh_up}
++	mov.w R0,@(8,r5)          ;!/* 10000001mmmmi4*2 mov.w R0,@(<disp>,<REG_M>)*/{"mov.w",{A_R0,A_DISP_REG_M},{HEX_8,HEX_1,REG_M,IMM1_4BY2}, arch_sh_up}
++	mov.w R0,@(8,GBR)         ;!/* 11000001i8*2.... mov.w R0,@(<disp>,GBR)*/{"mov.w",{A_R0,A_DISP_GBR},{HEX_C,HEX_1,IMM1_8BY2}, arch_sh_up}
++	mova @(end-.,PC),R0       ;!/* 11000111i8p4.... mova @(<adisp>,PC),R0*/{"mova",{A_DISP_PC,A_R0},{HEX_C,HEX_7,PCRELIMM_8BY4}, arch_sh_up}
++	movt r4                   ;!/* 0000nnnn00101001 movt <REG_N>        */{"movt",{A_REG_N},{HEX_0,REG_N,HEX_2,HEX_9}, arch_sh_up}
++	muls.w r5,r4              ;!/* 0010nnnnmmmm1111 muls.w <REG_M>,<REG_N>*/{"muls.w",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_F}, arch_sh_up}
++	muls r5,r4                ;!/* 0010nnnnmmmm1111 muls <REG_M>,<REG_N>*/{"muls",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_F}, arch_sh_up}
++	mul.l r5,r4               ;!/* 0000nnnnmmmm0111 mul.l <REG_M>,<REG_N>*/{"mul.l",{ A_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_7}, arch_sh2_up}
++	mulu.w r5,r4              ;!/* 0010nnnnmmmm1110 mulu.w <REG_M>,<REG_N>*/{"mulu.w",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_E}, arch_sh_up}
++	mulu r5,r4                ;!/* 0010nnnnmmmm1110 mulu <REG_M>,<REG_N>*/{"mulu",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_E}, arch_sh_up}
++	neg r5,r4                 ;!/* 0110nnnnmmmm1011 neg <REG_M>,<REG_N> */{"neg",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_B}, arch_sh_up}
++	negc r5,r4                ;!/* 0110nnnnmmmm1010 negc <REG_M>,<REG_N>*/{"negc",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_A}, arch_sh_up}
++	nop                       ;!/* 0000000000001001 nop                 */{"nop",{0},{HEX_0,HEX_0,HEX_0,HEX_9}, arch_sh_up}
++	not r5,r4                 ;!/* 0110nnnnmmmm0111 not <REG_M>,<REG_N> */{"not",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_7}, arch_sh_up}
++	or #4,R0                  ;!/* 11001011i8*1.... or #<imm>,R0        */{"or",{A_IMM,A_R0},{HEX_C,HEX_B,IMM0_8}, arch_sh_up}
++	or r5,r4                  ;!/* 0010nnnnmmmm1011 or <REG_M>,<REG_N>  */{"or",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_B}, arch_sh_up}
++	or.b #4,@(R0,GBR)         ;!/* 11001111i8*1.... or.b #<imm>,@(R0,GBR)*/{"or.b",{A_IMM,A_R0_GBR},{HEX_C,HEX_F,IMM0_8}, arch_sh_up}
++	pref @r4                  ;!/* 0000nnnn10000011 pref @<REG_N>       */{"pref",{A_IND_N},{HEX_0,REG_N,HEX_8,HEX_3}, arch_sh2a_nofpu_or_sh4_nommu_nofpu_up}
++	rotcl r4                  ;!/* 0100nnnn00100100 rotcl <REG_N>       */{"rotcl",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_4}, arch_sh_up}
++	rotcr r4                  ;!/* 0100nnnn00100101 rotcr <REG_N>       */{"rotcr",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_5}, arch_sh_up}
++	rotl r4                   ;!/* 0100nnnn00000100 rotl <REG_N>        */{"rotl",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_4}, arch_sh_up}
++	rotr r4                   ;!/* 0100nnnn00000101 rotr <REG_N>        */{"rotr",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_5}, arch_sh_up}
++	rte                       ;!/* 0000000000101011 rte                 */{"rte",{0},{HEX_0,HEX_0,HEX_2,HEX_B}, arch_sh_up}
++	rts                       ;!/* 0000000000001011 rts                 */{"rts",{0},{HEX_0,HEX_0,HEX_0,HEX_B}, arch_sh_up}
++	sets                      ;!/* 0000000001011000 sets                */{"sets",{0},{HEX_0,HEX_0,HEX_5,HEX_8}, arch_sh_up}
++	sett                      ;!/* 0000000000011000 sett                */{"sett",{0},{HEX_0,HEX_0,HEX_1,HEX_8}, arch_sh_up}
++	shad r5,r4                ;!/* 0100nnnnmmmm1100 shad <REG_M>,<REG_N>*/{"shad",{ A_REG_M,A_REG_N},{HEX_4,REG_N,REG_M,HEX_C}, arch_sh2a_nofpu_or_sh3_nommu_up}
++	shld r5,r4                ;!/* 0100nnnnmmmm1101 shld <REG_M>,<REG_N>*/{"shld",{ A_REG_M,A_REG_N},{HEX_4,REG_N,REG_M,HEX_D}, arch_sh2a_nofpu_or_sh3_nommu_up}
++	shal r4                   ;!/* 0100nnnn00100000 shal <REG_N>        */{"shal",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_0}, arch_sh_up}
++	shar r4                   ;!/* 0100nnnn00100001 shar <REG_N>        */{"shar",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_1}, arch_sh_up}
++	shll r4                   ;!/* 0100nnnn00000000 shll <REG_N>        */{"shll",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_0}, arch_sh_up}
++	shll16 r4                 ;!/* 0100nnnn00101000 shll16 <REG_N>      */{"shll16",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_8}, arch_sh_up}
++	shll2 r4                  ;!/* 0100nnnn00001000 shll2 <REG_N>       */{"shll2",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_8}, arch_sh_up}
++	shll8 r4                  ;!/* 0100nnnn00011000 shll8 <REG_N>       */{"shll8",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_8}, arch_sh_up}
++	shlr r4                   ;!/* 0100nnnn00000001 shlr <REG_N>        */{"shlr",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_1}, arch_sh_up}
++	shlr16 r4                 ;!/* 0100nnnn00101001 shlr16 <REG_N>      */{"shlr16",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_9}, arch_sh_up}
++	shlr2 r4                  ;!/* 0100nnnn00001001 shlr2 <REG_N>       */{"shlr2",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_9}, arch_sh_up}
++	shlr8 r4                  ;!/* 0100nnnn00011001 shlr8 <REG_N>       */{"shlr8",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_9}, arch_sh_up}
++	sleep                     ;!/* 0000000000011011 sleep               */{"sleep",{0},{HEX_0,HEX_0,HEX_1,HEX_B}, arch_sh_up}
++	stc SR,r4                 ;!/* 0000nnnn00000010 stc SR,<REG_N>      */{"stc",{A_SR,A_REG_N},{HEX_0,REG_N,HEX_0,HEX_2}, arch_sh_up}
++	stc GBR,r4                ;!/* 0000nnnn00010010 stc GBR,<REG_N>     */{"stc",{A_GBR,A_REG_N},{HEX_0,REG_N,HEX_1,HEX_2}, arch_sh_up}
++	stc VBR,r4                ;!/* 0000nnnn00100010 stc VBR,<REG_N>     */{"stc",{A_VBR,A_REG_N},{HEX_0,REG_N,HEX_2,HEX_2}, arch_sh_up}
++	stc.l SR,@-r4             ;!/* 0100nnnn00000011 stc.l SR,@-<REG_N>  */{"stc.l",{A_SR,A_DEC_N},{HEX_4,REG_N,HEX_0,HEX_3}, arch_sh_up}
++	stc.l VBR,@-r4            ;!/* 0100nnnn00100011 stc.l VBR,@-<REG_N> */{"stc.l",{A_VBR,A_DEC_N},{HEX_4,REG_N,HEX_2,HEX_3}, arch_sh_up}
++	stc.l GBR,@-r4            ;!/* 0100nnnn00010011 stc.l GBR,@-<REG_N> */{"stc.l",{A_GBR,A_DEC_N},{HEX_4,REG_N,HEX_1,HEX_3}, arch_sh_up}
++	sts MACH,r4               ;!/* 0000nnnn00001010 sts MACH,<REG_N>    */{"sts",{A_MACH,A_REG_N},{HEX_0,REG_N,HEX_0,HEX_A}, arch_sh_up}
++	sts MACL,r4               ;!/* 0000nnnn00011010 sts MACL,<REG_N>    */{"sts",{A_MACL,A_REG_N},{HEX_0,REG_N,HEX_1,HEX_A}, arch_sh_up}
++	sts PR,r4                 ;!/* 0000nnnn00101010 sts PR,<REG_N>      */{"sts",{A_PR,A_REG_N},{HEX_0,REG_N,HEX_2,HEX_A}, arch_sh_up}
++	sts.l MACH,@-r4           ;!/* 0100nnnn00000010 sts.l MACH,@-<REG_N>*/{"sts.l",{A_MACH,A_DEC_N},{HEX_4,REG_N,HEX_0,HEX_2}, arch_sh_up}
++	sts.l MACL,@-r4           ;!/* 0100nnnn00010010 sts.l MACL,@-<REG_N>*/{"sts.l",{A_MACL,A_DEC_N},{HEX_4,REG_N,HEX_1,HEX_2}, arch_sh_up}
++	sts.l PR,@-r4             ;!/* 0100nnnn00100010 sts.l PR,@-<REG_N>  */{"sts.l",{A_PR,A_DEC_N},{HEX_4,REG_N,HEX_2,HEX_2}, arch_sh_up}
++	sub r5,r4                 ;!/* 0011nnnnmmmm1000 sub <REG_M>,<REG_N> */{"sub",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_8}, arch_sh_up}
++	subc r5,r4                ;!/* 0011nnnnmmmm1010 subc <REG_M>,<REG_N>*/{"subc",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_A}, arch_sh_up}
++	subv r5,r4                ;!/* 0011nnnnmmmm1011 subv <REG_M>,<REG_N>*/{"subv",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_B}, arch_sh_up}
++	swap.b r5,r4              ;!/* 0110nnnnmmmm1000 swap.b <REG_M>,<REG_N>*/{"swap.b",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_8}, arch_sh_up}
++	swap.w r5,r4              ;!/* 0110nnnnmmmm1001 swap.w <REG_M>,<REG_N>*/{"swap.w",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_9}, arch_sh_up}
++	tas.b @r4                 ;!/* 0100nnnn00011011 tas.b @<REG_N>      */{"tas.b",{A_IND_N},{HEX_4,REG_N,HEX_1,HEX_B}, arch_sh_up}
++	trapa #4                  ;!/* 11000011i8*1.... trapa #<imm>        */{"trapa",{A_IMM},{HEX_C,HEX_3,IMM0_8}, arch_sh_up}
++	tst #4,R0                 ;!/* 11001000i8*1.... tst #<imm>,R0       */{"tst",{A_IMM,A_R0},{HEX_C,HEX_8,IMM0_8}, arch_sh_up}
++	tst r5,r4                 ;!/* 0010nnnnmmmm1000 tst <REG_M>,<REG_N> */{"tst",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_8}, arch_sh_up}
++	tst.b #4,@(R0,GBR)        ;!/* 11001100i8*1.... tst.b #<imm>,@(R0,GBR)*/{"tst.b",{A_IMM,A_R0_GBR},{HEX_C,HEX_C,IMM0_8}, arch_sh_up}
++	xor #4,R0                 ;!/* 11001010i8*1.... xor #<imm>,R0       */{"xor",{A_IMM,A_R0},{HEX_C,HEX_A,IMM0_8}, arch_sh_up}
++	xor r5,r4                 ;!/* 0010nnnnmmmm1010 xor <REG_M>,<REG_N> */{"xor",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_A}, arch_sh_up}
++	xor.b #4,@(R0,GBR)        ;!/* 11001110i8*1.... xor.b #<imm>,@(R0,GBR)*/{"xor.b",{A_IMM,A_R0_GBR},{HEX_C,HEX_E,IMM0_8}, arch_sh_up}
++	xtrct r5,r4               ;!/* 0010nnnnmmmm1101 xtrct <REG_M>,<REG_N>*/{"xtrct",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_D}, arch_sh_up}
++	dt r4                     ;!/* 0100nnnn00010000 dt <REG_N>          */{"dt",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_0}, arch_sh2_up}
++	dmuls.l r5,r4             ;!/* 0011nnnnmmmm1101 dmuls.l <REG_M>,<REG_N>*/{"dmuls.l",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_D}, arch_sh2_up}
++	dmulu.l r5,r4             ;!/* 0011nnnnmmmm0101 dmulu.l <REG_M>,<REG_N>*/{"dmulu.l",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_5}, arch_sh2_up}
++	mac.l @r5+,@r4+           ;!/* 0000nnnnmmmm1111 mac.l @<REG_M>+,@<REG_N>+*/{"mac.l",{A_INC_M,A_INC_N},{HEX_0,REG_N,REG_M,HEX_F}, arch_sh2_up}
++	braf r4                   ;!/* 0000nnnn00100011 braf <REG_N>       */{"braf",{A_REG_N},{HEX_0,REG_N,HEX_2,HEX_3}, arch_sh2_up}
++	bsrf r4                   ;!/* 0000nnnn00000011 bsrf <REG_N>       */{"bsrf",{A_REG_N},{HEX_0,REG_N,HEX_0,HEX_3}, arch_sh2_up}
++	.align 2
++end:
+diff -Naur binutils-2.18.50.0.8/gas/testsuite/gas/sh/arch/st40-300-nofpu-or-sh4a-nofpu.s binutils-2.18.50.0.8-stm/gas/testsuite/gas/sh/arch/st40-300-nofpu-or-sh4a-nofpu.s
+--- binutils-2.18.50.0.8/gas/testsuite/gas/sh/arch/st40-300-nofpu-or-sh4a-nofpu.s	1970-01-01 01:00:00.000000000 +0100
++++ binutils-2.18.50.0.8-stm/gas/testsuite/gas/sh/arch/st40-300-nofpu-or-sh4a-nofpu.s	2008-07-22 16:54:24.000000000 +0100
+@@ -0,0 +1,196 @@
++! Generated file. DO NOT EDIT.
++!
++! This file was generated by gas/testsuite/gas/sh/arch/arch.exp .
++! This file should contain every instruction valid on
++! architecture st40-300-nofpu-or-sh4a-nofpu but no more.
++! If the tests are failing because the expected results
++! have changed then run 'make check' and copy the new file
++! from <objdir>/gas/testsuite/st40-300-nofpu-or-sh4a-nofpu.s
++! to   <srcdir>/gas/testsuite/gas/sh/arch/st40-300-nofpu-or-sh4a-nofpu.s .
++! Make sure there are no unexpected or missing instructions.
++
++	.section .text
++st40_300_nofpu_or_sh4a_nofpu:
++! Instructions introduced into st40-300-nofpu-or-sh4a-nofpu
++	icbi @r4                  ;!/* 0000nnnn11100011 icbi @<REG_N>       */{"icbi",{A_IND_N},{HEX_0,REG_N,HEX_E,HEX_3}, arch_st40_300_nofpu_or_sh4a_nofpu_up}
++	synco                     ;!/* 0000000010101011 synco               */{"synco",{0},{HEX_0,HEX_0,HEX_A,HEX_B}, arch_st40_300_nofpu_or_sh4a_nofpu_up}
++
++! Instructions inherited from ancestors: sh sh2 sh2a-nofpu-or-sh3-nommu sh2a-nofpu-or-sh4-nommu-nofpu sh3 sh3-nommu sh4-nofpu sh4-nommu-nofpu
++	add #4,r4                 ;!/* 0111nnnni8*1.... add #<imm>,<REG_N>  */{"add",{A_IMM,A_REG_N},{HEX_7,REG_N,IMM0_8}, arch_sh_up}
++	add r5,r4                 ;!/* 0011nnnnmmmm1100 add <REG_M>,<REG_N> */{"add",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_C}, arch_sh_up}
++	addc r5,r4                ;!/* 0011nnnnmmmm1110 addc <REG_M>,<REG_N>*/{"addc",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_E}, arch_sh_up}
++	addv r5,r4                ;!/* 0011nnnnmmmm1111 addv <REG_M>,<REG_N>*/{"addv",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_F}, arch_sh_up}
++	and #4,R0                 ;!/* 11001001i8*1.... and #<imm>,R0       */{"and",{A_IMM,A_R0},{HEX_C,HEX_9,IMM0_8}, arch_sh_up}
++	and r5,r4                 ;!/* 0010nnnnmmmm1001 and <REG_M>,<REG_N> */{"and",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_9}, arch_sh_up}
++	and.b #4,@(R0,GBR)        ;!/* 11001101i8*1.... and.b #<imm>,@(R0,GBR)*/{"and.b",{A_IMM,A_R0_GBR},{HEX_C,HEX_D,IMM0_8}, arch_sh_up}
++	bra .+8                   ;!/* 1010i12......... bra <bdisp12>       */{"bra",{A_BDISP12},{HEX_A,BRANCH_12}, arch_sh_up}
++	bsr .+8                   ;!/* 1011i12......... bsr <bdisp12>       */{"bsr",{A_BDISP12},{HEX_B,BRANCH_12}, arch_sh_up}
++	bt .+8                    ;!/* 10001001i8p1.... bt <bdisp8>         */{"bt",{A_BDISP8},{HEX_8,HEX_9,BRANCH_8}, arch_sh_up}
++	bf .+8                    ;!/* 10001011i8p1.... bf <bdisp8>         */{"bf",{A_BDISP8},{HEX_8,HEX_B,BRANCH_8}, arch_sh_up}
++	bt.s .+8                  ;!/* 10001101i8p1.... bt.s <bdisp8>       */{"bt.s",{A_BDISP8},{HEX_8,HEX_D,BRANCH_8}, arch_sh2_up}
++	bt/s .+8                  ;!/* 10001101i8p1.... bt/s <bdisp8>       */{"bt/s",{A_BDISP8},{HEX_8,HEX_D,BRANCH_8}, arch_sh2_up}
++	bf.s .+8                  ;!/* 10001111i8p1.... bf.s <bdisp8>       */{"bf.s",{A_BDISP8},{HEX_8,HEX_F,BRANCH_8}, arch_sh2_up}
++	bf/s .+8                  ;!/* 10001111i8p1.... bf/s <bdisp8>       */{"bf/s",{A_BDISP8},{HEX_8,HEX_F,BRANCH_8}, arch_sh2_up}
++	clrmac                    ;!/* 0000000000101000 clrmac              */{"clrmac",{0},{HEX_0,HEX_0,HEX_2,HEX_8}, arch_sh_up}
++	clrs                      ;!/* 0000000001001000 clrs                */{"clrs",{0},{HEX_0,HEX_0,HEX_4,HEX_8}, arch_sh_up}
++	clrt                      ;!/* 0000000000001000 clrt                */{"clrt",{0},{HEX_0,HEX_0,HEX_0,HEX_8}, arch_sh_up}
++	cmp/eq #4,R0              ;!/* 10001000i8*1.... cmp/eq #<imm>,R0    */{"cmp/eq",{A_IMM,A_R0},{HEX_8,HEX_8,IMM0_8}, arch_sh_up}
++	cmp/eq r5,r4              ;!/* 0011nnnnmmmm0000 cmp/eq <REG_M>,<REG_N>*/{"cmp/eq",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_0}, arch_sh_up}
++	cmp/ge r5,r4              ;!/* 0011nnnnmmmm0011 cmp/ge <REG_M>,<REG_N>*/{"cmp/ge",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_3}, arch_sh_up}
++	cmp/gt r5,r4              ;!/* 0011nnnnmmmm0111 cmp/gt <REG_M>,<REG_N>*/{"cmp/gt",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_7}, arch_sh_up}
++	cmp/hi r5,r4              ;!/* 0011nnnnmmmm0110 cmp/hi <REG_M>,<REG_N>*/{"cmp/hi",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_6}, arch_sh_up}
++	cmp/hs r5,r4              ;!/* 0011nnnnmmmm0010 cmp/hs <REG_M>,<REG_N>*/{"cmp/hs",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_2}, arch_sh_up}
++	cmp/pl r4                 ;!/* 0100nnnn00010101 cmp/pl <REG_N>      */{"cmp/pl",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_5}, arch_sh_up}
++	cmp/pz r4                 ;!/* 0100nnnn00010001 cmp/pz <REG_N>      */{"cmp/pz",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_1}, arch_sh_up}
++	cmp/str r5,r4             ;!/* 0010nnnnmmmm1100 cmp/str <REG_M>,<REG_N>*/{"cmp/str",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_C}, arch_sh_up}
++	div0s r5,r4               ;!/* 0010nnnnmmmm0111 div0s <REG_M>,<REG_N>*/{"div0s",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_7}, arch_sh_up}
++	div0u                     ;!/* 0000000000011001 div0u               */{"div0u",{0},{HEX_0,HEX_0,HEX_1,HEX_9}, arch_sh_up}
++	div1 r5,r4                ;!/* 0011nnnnmmmm0100 div1 <REG_M>,<REG_N>*/{"div1",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_4}, arch_sh_up}
++	exts.b r5,r4              ;!/* 0110nnnnmmmm1110 exts.b <REG_M>,<REG_N>*/{"exts.b",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_E}, arch_sh_up}
++	exts.w r5,r4              ;!/* 0110nnnnmmmm1111 exts.w <REG_M>,<REG_N>*/{"exts.w",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_F}, arch_sh_up}
++	extu.b r5,r4              ;!/* 0110nnnnmmmm1100 extu.b <REG_M>,<REG_N>*/{"extu.b",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_C}, arch_sh_up}
++	extu.w r5,r4              ;!/* 0110nnnnmmmm1101 extu.w <REG_M>,<REG_N>*/{"extu.w",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_D}, arch_sh_up}
++	jmp @r4                   ;!/* 0100nnnn00101011 jmp @<REG_N>        */{"jmp",{A_IND_N},{HEX_4,REG_N,HEX_2,HEX_B}, arch_sh_up}
++	jsr @r4                   ;!/* 0100nnnn00001011 jsr @<REG_N>        */{"jsr",{A_IND_N},{HEX_4,REG_N,HEX_0,HEX_B}, arch_sh_up}
++	ldc r4,SR                 ;!/* 0100nnnn00001110 ldc <REG_N>,SR      */{"ldc",{A_REG_N,A_SR},{HEX_4,REG_N,HEX_0,HEX_E}, arch_sh_up}
++	ldc r4,GBR                ;!/* 0100nnnn00011110 ldc <REG_N>,GBR     */{"ldc",{A_REG_N,A_GBR},{HEX_4,REG_N,HEX_1,HEX_E}, arch_sh_up}
++	ldc r4,SGR                ;!/* 0100nnnn00111010 ldc <REG_N>,SGR     */{"ldc",{A_REG_N,A_SGR},{HEX_4,REG_N,HEX_3,HEX_A}, arch_sh4_nommu_nofpu_up}
++	ldc r4,VBR                ;!/* 0100nnnn00101110 ldc <REG_N>,VBR     */{"ldc",{A_REG_N,A_VBR},{HEX_4,REG_N,HEX_2,HEX_E}, arch_sh_up}
++	ldc r4,SSR                ;!/* 0100nnnn00111110 ldc <REG_N>,SSR     */{"ldc",{A_REG_N,A_SSR},{HEX_4,REG_N,HEX_3,HEX_E}, arch_sh3_nommu_up}
++	ldc r4,SPC                ;!/* 0100nnnn01001110 ldc <REG_N>,SPC     */{"ldc",{A_REG_N,A_SPC},{HEX_4,REG_N,HEX_4,HEX_E}, arch_sh3_nommu_up}
++	ldc r4,DBR                ;!/* 0100nnnn11111010 ldc <REG_N>,DBR     */{"ldc",{A_REG_N,A_DBR},{HEX_4,REG_N,HEX_F,HEX_A}, arch_sh4_nommu_nofpu_up}
++	ldc r4,r1_bank            ;!/* 0100nnnn1xxx1110 ldc <REG_N>,Rn_BANK */{"ldc",{A_REG_N,A_REG_B},{HEX_4,REG_N,REG_B,HEX_E}, arch_sh3_nommu_up}
++	ldc.l @r4+,SR             ;!/* 0100nnnn00000111 ldc.l @<REG_N>+,SR  */{"ldc.l",{A_INC_N,A_SR},{HEX_4,REG_N,HEX_0,HEX_7}, arch_sh_up}
++	ldc.l @r4+,GBR            ;!/* 0100nnnn00010111 ldc.l @<REG_N>+,GBR */{"ldc.l",{A_INC_N,A_GBR},{HEX_4,REG_N,HEX_1,HEX_7}, arch_sh_up}
++	ldc.l @r4+,VBR            ;!/* 0100nnnn00100111 ldc.l @<REG_N>+,VBR */{"ldc.l",{A_INC_N,A_VBR},{HEX_4,REG_N,HEX_2,HEX_7}, arch_sh_up}
++	ldc.l @r4+,SGR            ;!/* 0100nnnn00110110 ldc.l @<REG_N>+,SGR */{"ldc.l",{A_INC_N,A_SGR},{HEX_4,REG_N,HEX_3,HEX_6}, arch_sh4_nommu_nofpu_up}
++	ldc.l @r4+,SSR            ;!/* 0100nnnn00110111 ldc.l @<REG_N>+,SSR */{"ldc.l",{A_INC_N,A_SSR},{HEX_4,REG_N,HEX_3,HEX_7}, arch_sh3_nommu_up}
++	ldc.l @r4+,SPC            ;!/* 0100nnnn01000111 ldc.l @<REG_N>+,SPC */{"ldc.l",{A_INC_N,A_SPC},{HEX_4,REG_N,HEX_4,HEX_7}, arch_sh3_nommu_up}
++	ldc.l @r4+,DBR            ;!/* 0100nnnn11110110 ldc.l @<REG_N>+,DBR */{"ldc.l",{A_INC_N,A_DBR},{HEX_4,REG_N,HEX_F,HEX_6}, arch_sh4_nommu_nofpu_up}
++	ldc.l @r4+,r1_bank        ;!/* 0100nnnn1xxx0111 ldc.l @<REG_N>+,Rn_BANK */{"ldc.l",{A_INC_N,A_REG_B},{HEX_4,REG_N,REG_B,HEX_7}, arch_sh3_nommu_up}
++	lds r4,MACH               ;!/* 0100nnnn00001010 lds <REG_N>,MACH    */{"lds",{A_REG_N,A_MACH},{HEX_4,REG_N,HEX_0,HEX_A}, arch_sh_up}
++	lds r4,MACL               ;!/* 0100nnnn00011010 lds <REG_N>,MACL    */{"lds",{A_REG_N,A_MACL},{HEX_4,REG_N,HEX_1,HEX_A}, arch_sh_up}
++	lds r4,PR                 ;!/* 0100nnnn00101010 lds <REG_N>,PR      */{"lds",{A_REG_N,A_PR},{HEX_4,REG_N,HEX_2,HEX_A}, arch_sh_up}
++	lds.l @r4+,MACH           ;!/* 0100nnnn00000110 lds.l @<REG_N>+,MACH*/{"lds.l",{A_INC_N,A_MACH},{HEX_4,REG_N,HEX_0,HEX_6}, arch_sh_up}
++	lds.l @r4+,MACL           ;!/* 0100nnnn00010110 lds.l @<REG_N>+,MACL*/{"lds.l",{A_INC_N,A_MACL},{HEX_4,REG_N,HEX_1,HEX_6}, arch_sh_up}
++	lds.l @r4+,PR             ;!/* 0100nnnn00100110 lds.l @<REG_N>+,PR  */{"lds.l",{A_INC_N,A_PR},{HEX_4,REG_N,HEX_2,HEX_6}, arch_sh_up}
++	ldtlb                     ;!/* 0000000000111000 ldtlb               */{"ldtlb",{0},{HEX_0,HEX_0,HEX_3,HEX_8}, arch_sh3_up}
++	mac.w @r5+,@r4+           ;!/* 0100nnnnmmmm1111 mac.w @<REG_M>+,@<REG_N>+*/{"mac.w",{A_INC_M,A_INC_N},{HEX_4,REG_N,REG_M,HEX_F}, arch_sh_up}
++	mov #4,r4                 ;!/* 1110nnnni8*1.... mov #<imm>,<REG_N>  */{"mov",{A_IMM,A_REG_N},{HEX_E,REG_N,IMM0_8}, arch_sh_up}
++	mov r5,r4                 ;!/* 0110nnnnmmmm0011 mov <REG_M>,<REG_N> */{"mov",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_3}, arch_sh_up}
++	mov.b r5,@(R0,r4)         ;!/* 0000nnnnmmmm0100 mov.b <REG_M>,@(R0,<REG_N>)*/{"mov.b",{ A_REG_M,A_IND_R0_REG_N},{HEX_0,REG_N,REG_M,HEX_4}, arch_sh_up}
++	mov.b r5,@-r4             ;!/* 0010nnnnmmmm0100 mov.b <REG_M>,@-<REG_N>*/{"mov.b",{ A_REG_M,A_DEC_N},{HEX_2,REG_N,REG_M,HEX_4}, arch_sh_up}
++	mov.b r5,@r4              ;!/* 0010nnnnmmmm0000 mov.b <REG_M>,@<REG_N>*/{"mov.b",{ A_REG_M,A_IND_N},{HEX_2,REG_N,REG_M,HEX_0}, arch_sh_up}
++	mov.b @(8,r5),R0          ;!/* 10000100mmmmi4*1 mov.b @(<disp>,<REG_M>),R0*/{"mov.b",{A_DISP_REG_M,A_R0},{HEX_8,HEX_4,REG_M,IMM0_4}, arch_sh_up}
++	mov.b @(8,GBR),R0         ;!/* 11000100i8*1.... mov.b @(<disp>,GBR),R0*/{"mov.b",{A_DISP_GBR,A_R0},{HEX_C,HEX_4,IMM0_8}, arch_sh_up}
++	mov.b @(R0,r5),r4         ;!/* 0000nnnnmmmm1100 mov.b @(R0,<REG_M>),<REG_N>*/{"mov.b",{A_IND_R0_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_C}, arch_sh_up}
++	mov.b @r5+,r4             ;!/* 0110nnnnmmmm0100 mov.b @<REG_M>+,<REG_N>*/{"mov.b",{A_INC_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_4}, arch_sh_up}
++	mov.b @r5,r4              ;!/* 0110nnnnmmmm0000 mov.b @<REG_M>,<REG_N>*/{"mov.b",{A_IND_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_0}, arch_sh_up}
++	mov.b R0,@(8,r5)          ;!/* 10000000mmmmi4*1 mov.b R0,@(<disp>,<REG_M>)*/{"mov.b",{A_R0,A_DISP_REG_M},{HEX_8,HEX_0,REG_M,IMM1_4}, arch_sh_up}
++	mov.b R0,@(8,GBR)         ;!/* 11000000i8*1.... mov.b R0,@(<disp>,GBR)*/{"mov.b",{A_R0,A_DISP_GBR},{HEX_C,HEX_0,IMM1_8}, arch_sh_up}
++	mov.l r5,@(8,r4)          ;!/* 0001nnnnmmmmi4*4 mov.l <REG_M>,@(<disp>,<REG_N>)*/{"mov.l",{ A_REG_M,A_DISP_REG_N},{HEX_1,REG_N,REG_M,IMM1_4BY4}, arch_sh_up}
++	mov.l r5,@(R0,r4)         ;!/* 0000nnnnmmmm0110 mov.l <REG_M>,@(R0,<REG_N>)*/{"mov.l",{ A_REG_M,A_IND_R0_REG_N},{HEX_0,REG_N,REG_M,HEX_6}, arch_sh_up}
++	mov.l r5,@-r4             ;!/* 0010nnnnmmmm0110 mov.l <REG_M>,@-<REG_N>*/{"mov.l",{ A_REG_M,A_DEC_N},{HEX_2,REG_N,REG_M,HEX_6}, arch_sh_up}
++	mov.l r5,@r4              ;!/* 0010nnnnmmmm0010 mov.l <REG_M>,@<REG_N>*/{"mov.l",{ A_REG_M,A_IND_N},{HEX_2,REG_N,REG_M,HEX_2}, arch_sh_up}
++	mov.l @(8,r5),r4          ;!/* 0101nnnnmmmmi4*4 mov.l @(<disp>,<REG_M>),<REG_N>*/{"mov.l",{A_DISP_REG_M,A_REG_N},{HEX_5,REG_N,REG_M,IMM0_4BY4}, arch_sh_up}
++	mov.l @(8,GBR),R0         ;!/* 11000110i8*4.... mov.l @(<disp>,GBR),R0*/{"mov.l",{A_DISP_GBR,A_R0},{HEX_C,HEX_6,IMM0_8BY4}, arch_sh_up}
++	mov.l @(end-.,PC),r4      ;!/* 1101nnnni8p4.... mov.l @(<adisp>,PC),<REG_N>*/{"mov.l",{A_DISP_PC,A_REG_N},{HEX_D,REG_N,PCRELIMM_8BY4}, arch_sh_up}
++	mov.l @(R0,r5),r4         ;!/* 0000nnnnmmmm1110 mov.l @(R0,<REG_M>),<REG_N>*/{"mov.l",{A_IND_R0_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_E}, arch_sh_up}
++	mov.l @r5+,r4             ;!/* 0110nnnnmmmm0110 mov.l @<REG_M>+,<REG_N>*/{"mov.l",{A_INC_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_6}, arch_sh_up}
++	mov.l @r5,r4              ;!/* 0110nnnnmmmm0010 mov.l @<REG_M>,<REG_N>*/{"mov.l",{A_IND_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_2}, arch_sh_up}
++	mov.l R0,@(8,GBR)         ;!/* 11000010i8*4.... mov.l R0,@(<disp>,GBR)*/{"mov.l",{A_R0,A_DISP_GBR},{HEX_C,HEX_2,IMM1_8BY4}, arch_sh_up}
++	mov.w r5,@(R0,r4)         ;!/* 0000nnnnmmmm0101 mov.w <REG_M>,@(R0,<REG_N>)*/{"mov.w",{ A_REG_M,A_IND_R0_REG_N},{HEX_0,REG_N,REG_M,HEX_5}, arch_sh_up}
++	mov.w r5,@-r4             ;!/* 0010nnnnmmmm0101 mov.w <REG_M>,@-<REG_N>*/{"mov.w",{ A_REG_M,A_DEC_N},{HEX_2,REG_N,REG_M,HEX_5}, arch_sh_up}
++	mov.w r5,@r4              ;!/* 0010nnnnmmmm0001 mov.w <REG_M>,@<REG_N>*/{"mov.w",{ A_REG_M,A_IND_N},{HEX_2,REG_N,REG_M,HEX_1}, arch_sh_up}
++	mov.w @(8,r5),R0          ;!/* 10000101mmmmi4*2 mov.w @(<disp>,<REG_M>),R0*/{"mov.w",{A_DISP_REG_M,A_R0},{HEX_8,HEX_5,REG_M,IMM0_4BY2}, arch_sh_up}
++	mov.w @(8,GBR),R0         ;!/* 11000101i8*2.... mov.w @(<disp>,GBR),R0*/{"mov.w",{A_DISP_GBR,A_R0},{HEX_C,HEX_5,IMM0_8BY2}, arch_sh_up}
++	mov.w @(8,PC),r4          ;!/* 1001nnnni8p2.... mov.w @(<disp>,PC),<REG_N>*/{"mov.w",{A_DISP_PC,A_REG_N},{HEX_9,REG_N,PCRELIMM_8BY2}, arch_sh_up}
++	mov.w @(R0,r5),r4         ;!/* 0000nnnnmmmm1101 mov.w @(R0,<REG_M>),<REG_N>*/{"mov.w",{A_IND_R0_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_D}, arch_sh_up}
++	mov.w @r5+,r4             ;!/* 0110nnnnmmmm0101 mov.w @<REG_M>+,<REG_N>*/{"mov.w",{A_INC_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_5}, arch_sh_up}
++	mov.w @r5,r4              ;!/* 0110nnnnmmmm0001 mov.w @<REG_M>,<REG_N>*/{"mov.w",{A_IND_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_1}, arch_sh_up}
++	mov.w R0,@(8,r5)          ;!/* 10000001mmmmi4*2 mov.w R0,@(<disp>,<REG_M>)*/{"mov.w",{A_R0,A_DISP_REG_M},{HEX_8,HEX_1,REG_M,IMM1_4BY2}, arch_sh_up}
++	mov.w R0,@(8,GBR)         ;!/* 11000001i8*2.... mov.w R0,@(<disp>,GBR)*/{"mov.w",{A_R0,A_DISP_GBR},{HEX_C,HEX_1,IMM1_8BY2}, arch_sh_up}
++	mova @(end-.,PC),R0       ;!/* 11000111i8p4.... mova @(<adisp>,PC),R0*/{"mova",{A_DISP_PC,A_R0},{HEX_C,HEX_7,PCRELIMM_8BY4}, arch_sh_up}
++	movca.l R0,@r4            ;!/* 0000nnnn11000011 movca.l R0,@<REG_N> */{"movca.l",{A_R0,A_IND_N},{HEX_0,REG_N,HEX_C,HEX_3}, arch_sh4_nommu_nofpu_up}
++	movt r4                   ;!/* 0000nnnn00101001 movt <REG_N>        */{"movt",{A_REG_N},{HEX_0,REG_N,HEX_2,HEX_9}, arch_sh_up}
++	muls.w r5,r4              ;!/* 0010nnnnmmmm1111 muls.w <REG_M>,<REG_N>*/{"muls.w",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_F}, arch_sh_up}
++	muls r5,r4                ;!/* 0010nnnnmmmm1111 muls <REG_M>,<REG_N>*/{"muls",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_F}, arch_sh_up}
++	mul.l r5,r4               ;!/* 0000nnnnmmmm0111 mul.l <REG_M>,<REG_N>*/{"mul.l",{ A_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_7}, arch_sh2_up}
++	mulu.w r5,r4              ;!/* 0010nnnnmmmm1110 mulu.w <REG_M>,<REG_N>*/{"mulu.w",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_E}, arch_sh_up}
++	mulu r5,r4                ;!/* 0010nnnnmmmm1110 mulu <REG_M>,<REG_N>*/{"mulu",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_E}, arch_sh_up}
++	neg r5,r4                 ;!/* 0110nnnnmmmm1011 neg <REG_M>,<REG_N> */{"neg",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_B}, arch_sh_up}
++	negc r5,r4                ;!/* 0110nnnnmmmm1010 negc <REG_M>,<REG_N>*/{"negc",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_A}, arch_sh_up}
++	nop                       ;!/* 0000000000001001 nop                 */{"nop",{0},{HEX_0,HEX_0,HEX_0,HEX_9}, arch_sh_up}
++	not r5,r4                 ;!/* 0110nnnnmmmm0111 not <REG_M>,<REG_N> */{"not",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_7}, arch_sh_up}
++	ocbi @r4                  ;!/* 0000nnnn10010011 ocbi @<REG_N>       */{"ocbi",{A_IND_N},{HEX_0,REG_N,HEX_9,HEX_3}, arch_sh4_nommu_nofpu_up}
++	ocbp @r4                  ;!/* 0000nnnn10100011 ocbp @<REG_N>       */{"ocbp",{A_IND_N},{HEX_0,REG_N,HEX_A,HEX_3}, arch_sh4_nommu_nofpu_up}
++	ocbwb @r4                 ;!/* 0000nnnn10110011 ocbwb @<REG_N>      */{"ocbwb",{A_IND_N},{HEX_0,REG_N,HEX_B,HEX_3}, arch_sh4_nommu_nofpu_up}
++	or #4,R0                  ;!/* 11001011i8*1.... or #<imm>,R0        */{"or",{A_IMM,A_R0},{HEX_C,HEX_B,IMM0_8}, arch_sh_up}
++	or r5,r4                  ;!/* 0010nnnnmmmm1011 or <REG_M>,<REG_N>  */{"or",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_B}, arch_sh_up}
++	or.b #4,@(R0,GBR)         ;!/* 11001111i8*1.... or.b #<imm>,@(R0,GBR)*/{"or.b",{A_IMM,A_R0_GBR},{HEX_C,HEX_F,IMM0_8}, arch_sh_up}
++	pref @r4                  ;!/* 0000nnnn10000011 pref @<REG_N>       */{"pref",{A_IND_N},{HEX_0,REG_N,HEX_8,HEX_3}, arch_sh2a_nofpu_or_sh4_nommu_nofpu_up}
++	rotcl r4                  ;!/* 0100nnnn00100100 rotcl <REG_N>       */{"rotcl",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_4}, arch_sh_up}
++	rotcr r4                  ;!/* 0100nnnn00100101 rotcr <REG_N>       */{"rotcr",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_5}, arch_sh_up}
++	rotl r4                   ;!/* 0100nnnn00000100 rotl <REG_N>        */{"rotl",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_4}, arch_sh_up}
++	rotr r4                   ;!/* 0100nnnn00000101 rotr <REG_N>        */{"rotr",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_5}, arch_sh_up}
++	rte                       ;!/* 0000000000101011 rte                 */{"rte",{0},{HEX_0,HEX_0,HEX_2,HEX_B}, arch_sh_up}
++	rts                       ;!/* 0000000000001011 rts                 */{"rts",{0},{HEX_0,HEX_0,HEX_0,HEX_B}, arch_sh_up}
++	sets                      ;!/* 0000000001011000 sets                */{"sets",{0},{HEX_0,HEX_0,HEX_5,HEX_8}, arch_sh_up}
++	sett                      ;!/* 0000000000011000 sett                */{"sett",{0},{HEX_0,HEX_0,HEX_1,HEX_8}, arch_sh_up}
++	shad r5,r4                ;!/* 0100nnnnmmmm1100 shad <REG_M>,<REG_N>*/{"shad",{ A_REG_M,A_REG_N},{HEX_4,REG_N,REG_M,HEX_C}, arch_sh2a_nofpu_or_sh3_nommu_up}
++	shld r5,r4                ;!/* 0100nnnnmmmm1101 shld <REG_M>,<REG_N>*/{"shld",{ A_REG_M,A_REG_N},{HEX_4,REG_N,REG_M,HEX_D}, arch_sh2a_nofpu_or_sh3_nommu_up}
++	shal r4                   ;!/* 0100nnnn00100000 shal <REG_N>        */{"shal",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_0}, arch_sh_up}
++	shar r4                   ;!/* 0100nnnn00100001 shar <REG_N>        */{"shar",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_1}, arch_sh_up}
++	shll r4                   ;!/* 0100nnnn00000000 shll <REG_N>        */{"shll",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_0}, arch_sh_up}
++	shll16 r4                 ;!/* 0100nnnn00101000 shll16 <REG_N>      */{"shll16",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_8}, arch_sh_up}
++	shll2 r4                  ;!/* 0100nnnn00001000 shll2 <REG_N>       */{"shll2",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_8}, arch_sh_up}
++	shll8 r4                  ;!/* 0100nnnn00011000 shll8 <REG_N>       */{"shll8",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_8}, arch_sh_up}
++	shlr r4                   ;!/* 0100nnnn00000001 shlr <REG_N>        */{"shlr",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_1}, arch_sh_up}
++	shlr16 r4                 ;!/* 0100nnnn00101001 shlr16 <REG_N>      */{"shlr16",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_9}, arch_sh_up}
++	shlr2 r4                  ;!/* 0100nnnn00001001 shlr2 <REG_N>       */{"shlr2",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_9}, arch_sh_up}
++	shlr8 r4                  ;!/* 0100nnnn00011001 shlr8 <REG_N>       */{"shlr8",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_9}, arch_sh_up}
++	sleep                     ;!/* 0000000000011011 sleep               */{"sleep",{0},{HEX_0,HEX_0,HEX_1,HEX_B}, arch_sh_up}
++	stc SR,r4                 ;!/* 0000nnnn00000010 stc SR,<REG_N>      */{"stc",{A_SR,A_REG_N},{HEX_0,REG_N,HEX_0,HEX_2}, arch_sh_up}
++	stc GBR,r4                ;!/* 0000nnnn00010010 stc GBR,<REG_N>     */{"stc",{A_GBR,A_REG_N},{HEX_0,REG_N,HEX_1,HEX_2}, arch_sh_up}
++	stc VBR,r4                ;!/* 0000nnnn00100010 stc VBR,<REG_N>     */{"stc",{A_VBR,A_REG_N},{HEX_0,REG_N,HEX_2,HEX_2}, arch_sh_up}
++	stc SSR,r4                ;!/* 0000nnnn00110010 stc SSR,<REG_N>     */{"stc",{A_SSR,A_REG_N},{HEX_0,REG_N,HEX_3,HEX_2}, arch_sh3_nommu_up}
++	stc SPC,r4                ;!/* 0000nnnn01000010 stc SPC,<REG_N>     */{"stc",{A_SPC,A_REG_N},{HEX_0,REG_N,HEX_4,HEX_2}, arch_sh3_nommu_up}
++	stc SGR,r4                ;!/* 0000nnnn00111010 stc SGR,<REG_N>     */{"stc",{A_SGR,A_REG_N},{HEX_0,REG_N,HEX_3,HEX_A}, arch_sh4_nommu_nofpu_up}
++	stc DBR,r4                ;!/* 0000nnnn11111010 stc DBR,<REG_N>     */{"stc",{A_DBR,A_REG_N},{HEX_0,REG_N,HEX_F,HEX_A}, arch_sh4_nommu_nofpu_up}
++	stc r1_bank,r4            ;!/* 0000nnnn1xxx0010 stc Rn_BANK,<REG_N> */{"stc",{A_REG_B,A_REG_N},{HEX_0,REG_N,REG_B,HEX_2}, arch_sh3_nommu_up}
++	stc.l SR,@-r4             ;!/* 0100nnnn00000011 stc.l SR,@-<REG_N>  */{"stc.l",{A_SR,A_DEC_N},{HEX_4,REG_N,HEX_0,HEX_3}, arch_sh_up}
++	stc.l VBR,@-r4            ;!/* 0100nnnn00100011 stc.l VBR,@-<REG_N> */{"stc.l",{A_VBR,A_DEC_N},{HEX_4,REG_N,HEX_2,HEX_3}, arch_sh_up}
++	stc.l SSR,@-r4            ;!/* 0100nnnn00110011 stc.l SSR,@-<REG_N> */{"stc.l",{A_SSR,A_DEC_N},{HEX_4,REG_N,HEX_3,HEX_3}, arch_sh3_nommu_up}
++	stc.l SPC,@-r4            ;!/* 0100nnnn01000011 stc.l SPC,@-<REG_N> */{"stc.l",{A_SPC,A_DEC_N},{HEX_4,REG_N,HEX_4,HEX_3}, arch_sh3_nommu_up}
++	stc.l GBR,@-r4            ;!/* 0100nnnn00010011 stc.l GBR,@-<REG_N> */{"stc.l",{A_GBR,A_DEC_N},{HEX_4,REG_N,HEX_1,HEX_3}, arch_sh_up}
++	stc.l SGR,@-r4            ;!/* 0100nnnn00110010 stc.l SGR,@-<REG_N> */{"stc.l",{A_SGR,A_DEC_N},{HEX_4,REG_N,HEX_3,HEX_2}, arch_sh4_nommu_nofpu_up}
++	stc.l DBR,@-r4            ;!/* 0100nnnn11110010 stc.l DBR,@-<REG_N> */{"stc.l",{A_DBR,A_DEC_N},{HEX_4,REG_N,HEX_F,HEX_2}, arch_sh4_nommu_nofpu_up}
++	stc.l r1_bank,@-r4        ;!/* 0100nnnn1xxx0011 stc.l Rn_BANK,@-<REG_N> */{"stc.l",{A_REG_B,A_DEC_N},{HEX_4,REG_N,REG_B,HEX_3}, arch_sh3_nommu_up}
++	sts MACH,r4               ;!/* 0000nnnn00001010 sts MACH,<REG_N>    */{"sts",{A_MACH,A_REG_N},{HEX_0,REG_N,HEX_0,HEX_A}, arch_sh_up}
++	sts MACL,r4               ;!/* 0000nnnn00011010 sts MACL,<REG_N>    */{"sts",{A_MACL,A_REG_N},{HEX_0,REG_N,HEX_1,HEX_A}, arch_sh_up}
++	sts PR,r4                 ;!/* 0000nnnn00101010 sts PR,<REG_N>      */{"sts",{A_PR,A_REG_N},{HEX_0,REG_N,HEX_2,HEX_A}, arch_sh_up}
++	sts.l MACH,@-r4           ;!/* 0100nnnn00000010 sts.l MACH,@-<REG_N>*/{"sts.l",{A_MACH,A_DEC_N},{HEX_4,REG_N,HEX_0,HEX_2}, arch_sh_up}
++	sts.l MACL,@-r4           ;!/* 0100nnnn00010010 sts.l MACL,@-<REG_N>*/{"sts.l",{A_MACL,A_DEC_N},{HEX_4,REG_N,HEX_1,HEX_2}, arch_sh_up}
++	sts.l PR,@-r4             ;!/* 0100nnnn00100010 sts.l PR,@-<REG_N>  */{"sts.l",{A_PR,A_DEC_N},{HEX_4,REG_N,HEX_2,HEX_2}, arch_sh_up}
++	sub r5,r4                 ;!/* 0011nnnnmmmm1000 sub <REG_M>,<REG_N> */{"sub",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_8}, arch_sh_up}
++	subc r5,r4                ;!/* 0011nnnnmmmm1010 subc <REG_M>,<REG_N>*/{"subc",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_A}, arch_sh_up}
++	subv r5,r4                ;!/* 0011nnnnmmmm1011 subv <REG_M>,<REG_N>*/{"subv",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_B}, arch_sh_up}
++	swap.b r5,r4              ;!/* 0110nnnnmmmm1000 swap.b <REG_M>,<REG_N>*/{"swap.b",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_8}, arch_sh_up}
++	swap.w r5,r4              ;!/* 0110nnnnmmmm1001 swap.w <REG_M>,<REG_N>*/{"swap.w",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_9}, arch_sh_up}
++	tas.b @r4                 ;!/* 0100nnnn00011011 tas.b @<REG_N>      */{"tas.b",{A_IND_N},{HEX_4,REG_N,HEX_1,HEX_B}, arch_sh_up}
++	trapa #4                  ;!/* 11000011i8*1.... trapa #<imm>        */{"trapa",{A_IMM},{HEX_C,HEX_3,IMM0_8}, arch_sh_up}
++	tst #4,R0                 ;!/* 11001000i8*1.... tst #<imm>,R0       */{"tst",{A_IMM,A_R0},{HEX_C,HEX_8,IMM0_8}, arch_sh_up}
++	tst r5,r4                 ;!/* 0010nnnnmmmm1000 tst <REG_M>,<REG_N> */{"tst",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_8}, arch_sh_up}
++	tst.b #4,@(R0,GBR)        ;!/* 11001100i8*1.... tst.b #<imm>,@(R0,GBR)*/{"tst.b",{A_IMM,A_R0_GBR},{HEX_C,HEX_C,IMM0_8}, arch_sh_up}
++	xor #4,R0                 ;!/* 11001010i8*1.... xor #<imm>,R0       */{"xor",{A_IMM,A_R0},{HEX_C,HEX_A,IMM0_8}, arch_sh_up}
++	xor r5,r4                 ;!/* 0010nnnnmmmm1010 xor <REG_M>,<REG_N> */{"xor",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_A}, arch_sh_up}
++	xor.b #4,@(R0,GBR)        ;!/* 11001110i8*1.... xor.b #<imm>,@(R0,GBR)*/{"xor.b",{A_IMM,A_R0_GBR},{HEX_C,HEX_E,IMM0_8}, arch_sh_up}
++	xtrct r5,r4               ;!/* 0010nnnnmmmm1101 xtrct <REG_M>,<REG_N>*/{"xtrct",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_D}, arch_sh_up}
++	dt r4                     ;!/* 0100nnnn00010000 dt <REG_N>          */{"dt",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_0}, arch_sh2_up}
++	dmuls.l r5,r4             ;!/* 0011nnnnmmmm1101 dmuls.l <REG_M>,<REG_N>*/{"dmuls.l",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_D}, arch_sh2_up}
++	dmulu.l r5,r4             ;!/* 0011nnnnmmmm0101 dmulu.l <REG_M>,<REG_N>*/{"dmulu.l",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_5}, arch_sh2_up}
++	mac.l @r5+,@r4+           ;!/* 0000nnnnmmmm1111 mac.l @<REG_M>+,@<REG_N>+*/{"mac.l",{A_INC_M,A_INC_N},{HEX_0,REG_N,REG_M,HEX_F}, arch_sh2_up}
++	braf r4                   ;!/* 0000nnnn00100011 braf <REG_N>       */{"braf",{A_REG_N},{HEX_0,REG_N,HEX_2,HEX_3}, arch_sh2_up}
++	bsrf r4                   ;!/* 0000nnnn00000011 bsrf <REG_N>       */{"bsrf",{A_REG_N},{HEX_0,REG_N,HEX_0,HEX_3}, arch_sh2_up}
++	.align 2
++end:
+diff -Naur binutils-2.18.50.0.8/gas/testsuite/gas/sh/arch/st40-300-nofpu.s binutils-2.18.50.0.8-stm/gas/testsuite/gas/sh/arch/st40-300-nofpu.s
+--- binutils-2.18.50.0.8/gas/testsuite/gas/sh/arch/st40-300-nofpu.s	1970-01-01 01:00:00.000000000 +0100
++++ binutils-2.18.50.0.8-stm/gas/testsuite/gas/sh/arch/st40-300-nofpu.s	2008-07-22 16:54:24.000000000 +0100
+@@ -0,0 +1,200 @@
++! Generated file. DO NOT EDIT.
++!
++! This file was generated by gas/testsuite/gas/sh/arch/arch.exp .
++! This file should contain every instruction valid on
++! architecture st40-300-nofpu but no more.
++! If the tests are failing because the expected results
++! have changed then run 'make check' and copy the new file
++! from <objdir>/gas/testsuite/st40-300-nofpu.s
++! to   <srcdir>/gas/testsuite/gas/sh/arch/st40-300-nofpu.s .
++! Make sure there are no unexpected or missing instructions.
++
++	.section .text
++st40_300_nofpu:
++! Instructions introduced into st40-300-nofpu
++	mulr R1,r4                ;!/* 0100nnnn10010000 mulr R1,<REG_N> */       {"mulr",{A_R1,A_REG_N},{HEX_4,REG_N,HEX_9,HEX_0}, arch_st40_300_nofpu_up}
++	mulr R2,r4                ;!/* 0100nnnn10100000 mulr R2,<REG_N> */       {"mulr",{A_R2,A_REG_N},{HEX_4,REG_N,HEX_A,HEX_0}, arch_st40_300_nofpu_up}
++	mulr R3,r4                ;!/* 0100nnnn10110000 mulr R3,<REG_N> */       {"mulr",{A_R3,A_REG_N},{HEX_4,REG_N,HEX_B,HEX_0}, arch_st40_300_nofpu_up}
++
++! Instructions inherited from ancestors: sh sh2 sh2a-nofpu-or-sh3-nommu sh2a-nofpu-or-sh4-nommu-nofpu sh3 sh3-nommu sh4-nofpu sh4-nommu-nofpu st40-300-nofpu-or-sh2a-nofpu st40-300-nofpu-or-sh4a-nofpu
++	add #4,r4                 ;!/* 0111nnnni8*1.... add #<imm>,<REG_N>  */{"add",{A_IMM,A_REG_N},{HEX_7,REG_N,IMM0_8}, arch_sh_up}
++	add r5,r4                 ;!/* 0011nnnnmmmm1100 add <REG_M>,<REG_N> */{"add",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_C}, arch_sh_up}
++	addc r5,r4                ;!/* 0011nnnnmmmm1110 addc <REG_M>,<REG_N>*/{"addc",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_E}, arch_sh_up}
++	addv r5,r4                ;!/* 0011nnnnmmmm1111 addv <REG_M>,<REG_N>*/{"addv",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_F}, arch_sh_up}
++	and #4,R0                 ;!/* 11001001i8*1.... and #<imm>,R0       */{"and",{A_IMM,A_R0},{HEX_C,HEX_9,IMM0_8}, arch_sh_up}
++	and r5,r4                 ;!/* 0010nnnnmmmm1001 and <REG_M>,<REG_N> */{"and",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_9}, arch_sh_up}
++	and.b #4,@(R0,GBR)        ;!/* 11001101i8*1.... and.b #<imm>,@(R0,GBR)*/{"and.b",{A_IMM,A_R0_GBR},{HEX_C,HEX_D,IMM0_8}, arch_sh_up}
++	bra .+8                   ;!/* 1010i12......... bra <bdisp12>       */{"bra",{A_BDISP12},{HEX_A,BRANCH_12}, arch_sh_up}
++	bsr .+8                   ;!/* 1011i12......... bsr <bdisp12>       */{"bsr",{A_BDISP12},{HEX_B,BRANCH_12}, arch_sh_up}
++	bt .+8                    ;!/* 10001001i8p1.... bt <bdisp8>         */{"bt",{A_BDISP8},{HEX_8,HEX_9,BRANCH_8}, arch_sh_up}
++	bf .+8                    ;!/* 10001011i8p1.... bf <bdisp8>         */{"bf",{A_BDISP8},{HEX_8,HEX_B,BRANCH_8}, arch_sh_up}
++	bt.s .+8                  ;!/* 10001101i8p1.... bt.s <bdisp8>       */{"bt.s",{A_BDISP8},{HEX_8,HEX_D,BRANCH_8}, arch_sh2_up}
++	bt/s .+8                  ;!/* 10001101i8p1.... bt/s <bdisp8>       */{"bt/s",{A_BDISP8},{HEX_8,HEX_D,BRANCH_8}, arch_sh2_up}
++	bf.s .+8                  ;!/* 10001111i8p1.... bf.s <bdisp8>       */{"bf.s",{A_BDISP8},{HEX_8,HEX_F,BRANCH_8}, arch_sh2_up}
++	bf/s .+8                  ;!/* 10001111i8p1.... bf/s <bdisp8>       */{"bf/s",{A_BDISP8},{HEX_8,HEX_F,BRANCH_8}, arch_sh2_up}
++	clrmac                    ;!/* 0000000000101000 clrmac              */{"clrmac",{0},{HEX_0,HEX_0,HEX_2,HEX_8}, arch_sh_up}
++	clrs                      ;!/* 0000000001001000 clrs                */{"clrs",{0},{HEX_0,HEX_0,HEX_4,HEX_8}, arch_sh_up}
++	clrt                      ;!/* 0000000000001000 clrt                */{"clrt",{0},{HEX_0,HEX_0,HEX_0,HEX_8}, arch_sh_up}
++	cmp/eq #4,R0              ;!/* 10001000i8*1.... cmp/eq #<imm>,R0    */{"cmp/eq",{A_IMM,A_R0},{HEX_8,HEX_8,IMM0_8}, arch_sh_up}
++	cmp/eq r5,r4              ;!/* 0011nnnnmmmm0000 cmp/eq <REG_M>,<REG_N>*/{"cmp/eq",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_0}, arch_sh_up}
++	cmp/ge r5,r4              ;!/* 0011nnnnmmmm0011 cmp/ge <REG_M>,<REG_N>*/{"cmp/ge",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_3}, arch_sh_up}
++	cmp/gt r5,r4              ;!/* 0011nnnnmmmm0111 cmp/gt <REG_M>,<REG_N>*/{"cmp/gt",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_7}, arch_sh_up}
++	cmp/hi r5,r4              ;!/* 0011nnnnmmmm0110 cmp/hi <REG_M>,<REG_N>*/{"cmp/hi",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_6}, arch_sh_up}
++	cmp/hs r5,r4              ;!/* 0011nnnnmmmm0010 cmp/hs <REG_M>,<REG_N>*/{"cmp/hs",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_2}, arch_sh_up}
++	cmp/pl r4                 ;!/* 0100nnnn00010101 cmp/pl <REG_N>      */{"cmp/pl",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_5}, arch_sh_up}
++	cmp/pz r4                 ;!/* 0100nnnn00010001 cmp/pz <REG_N>      */{"cmp/pz",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_1}, arch_sh_up}
++	cmp/str r5,r4             ;!/* 0010nnnnmmmm1100 cmp/str <REG_M>,<REG_N>*/{"cmp/str",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_C}, arch_sh_up}
++	div0s r5,r4               ;!/* 0010nnnnmmmm0111 div0s <REG_M>,<REG_N>*/{"div0s",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_7}, arch_sh_up}
++	div0u                     ;!/* 0000000000011001 div0u               */{"div0u",{0},{HEX_0,HEX_0,HEX_1,HEX_9}, arch_sh_up}
++	div1 r5,r4                ;!/* 0011nnnnmmmm0100 div1 <REG_M>,<REG_N>*/{"div1",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_4}, arch_sh_up}
++	exts.b r5,r4              ;!/* 0110nnnnmmmm1110 exts.b <REG_M>,<REG_N>*/{"exts.b",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_E}, arch_sh_up}
++	exts.w r5,r4              ;!/* 0110nnnnmmmm1111 exts.w <REG_M>,<REG_N>*/{"exts.w",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_F}, arch_sh_up}
++	extu.b r5,r4              ;!/* 0110nnnnmmmm1100 extu.b <REG_M>,<REG_N>*/{"extu.b",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_C}, arch_sh_up}
++	extu.w r5,r4              ;!/* 0110nnnnmmmm1101 extu.w <REG_M>,<REG_N>*/{"extu.w",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_D}, arch_sh_up}
++	icbi @r4                  ;!/* 0000nnnn11100011 icbi @<REG_N>       */{"icbi",{A_IND_N},{HEX_0,REG_N,HEX_E,HEX_3}, arch_st40_300_nofpu_or_sh4a_nofpu_up}
++	jmp @r4                   ;!/* 0100nnnn00101011 jmp @<REG_N>        */{"jmp",{A_IND_N},{HEX_4,REG_N,HEX_2,HEX_B}, arch_sh_up}
++	jsr @r4                   ;!/* 0100nnnn00001011 jsr @<REG_N>        */{"jsr",{A_IND_N},{HEX_4,REG_N,HEX_0,HEX_B}, arch_sh_up}
++	ldc r4,SR                 ;!/* 0100nnnn00001110 ldc <REG_N>,SR      */{"ldc",{A_REG_N,A_SR},{HEX_4,REG_N,HEX_0,HEX_E}, arch_sh_up}
++	ldc r4,GBR                ;!/* 0100nnnn00011110 ldc <REG_N>,GBR     */{"ldc",{A_REG_N,A_GBR},{HEX_4,REG_N,HEX_1,HEX_E}, arch_sh_up}
++	ldc r4,SGR                ;!/* 0100nnnn00111010 ldc <REG_N>,SGR     */{"ldc",{A_REG_N,A_SGR},{HEX_4,REG_N,HEX_3,HEX_A}, arch_sh4_nommu_nofpu_up}
++	ldc r4,VBR                ;!/* 0100nnnn00101110 ldc <REG_N>,VBR     */{"ldc",{A_REG_N,A_VBR},{HEX_4,REG_N,HEX_2,HEX_E}, arch_sh_up}
++	ldc r4,SSR                ;!/* 0100nnnn00111110 ldc <REG_N>,SSR     */{"ldc",{A_REG_N,A_SSR},{HEX_4,REG_N,HEX_3,HEX_E}, arch_sh3_nommu_up}
++	ldc r4,SPC                ;!/* 0100nnnn01001110 ldc <REG_N>,SPC     */{"ldc",{A_REG_N,A_SPC},{HEX_4,REG_N,HEX_4,HEX_E}, arch_sh3_nommu_up}
++	ldc r4,DBR                ;!/* 0100nnnn11111010 ldc <REG_N>,DBR     */{"ldc",{A_REG_N,A_DBR},{HEX_4,REG_N,HEX_F,HEX_A}, arch_sh4_nommu_nofpu_up}
++	ldc r4,r1_bank            ;!/* 0100nnnn1xxx1110 ldc <REG_N>,Rn_BANK */{"ldc",{A_REG_N,A_REG_B},{HEX_4,REG_N,REG_B,HEX_E}, arch_sh3_nommu_up}
++	ldc.l @r4+,SR             ;!/* 0100nnnn00000111 ldc.l @<REG_N>+,SR  */{"ldc.l",{A_INC_N,A_SR},{HEX_4,REG_N,HEX_0,HEX_7}, arch_sh_up}
++	ldc.l @r4+,GBR            ;!/* 0100nnnn00010111 ldc.l @<REG_N>+,GBR */{"ldc.l",{A_INC_N,A_GBR},{HEX_4,REG_N,HEX_1,HEX_7}, arch_sh_up}
++	ldc.l @r4+,VBR            ;!/* 0100nnnn00100111 ldc.l @<REG_N>+,VBR */{"ldc.l",{A_INC_N,A_VBR},{HEX_4,REG_N,HEX_2,HEX_7}, arch_sh_up}
++	ldc.l @r4+,SGR            ;!/* 0100nnnn00110110 ldc.l @<REG_N>+,SGR */{"ldc.l",{A_INC_N,A_SGR},{HEX_4,REG_N,HEX_3,HEX_6}, arch_sh4_nommu_nofpu_up}
++	ldc.l @r4+,SSR            ;!/* 0100nnnn00110111 ldc.l @<REG_N>+,SSR */{"ldc.l",{A_INC_N,A_SSR},{HEX_4,REG_N,HEX_3,HEX_7}, arch_sh3_nommu_up}
++	ldc.l @r4+,SPC            ;!/* 0100nnnn01000111 ldc.l @<REG_N>+,SPC */{"ldc.l",{A_INC_N,A_SPC},{HEX_4,REG_N,HEX_4,HEX_7}, arch_sh3_nommu_up}
++	ldc.l @r4+,DBR            ;!/* 0100nnnn11110110 ldc.l @<REG_N>+,DBR */{"ldc.l",{A_INC_N,A_DBR},{HEX_4,REG_N,HEX_F,HEX_6}, arch_sh4_nommu_nofpu_up}
++	ldc.l @r4+,r1_bank        ;!/* 0100nnnn1xxx0111 ldc.l @<REG_N>+,Rn_BANK */{"ldc.l",{A_INC_N,A_REG_B},{HEX_4,REG_N,REG_B,HEX_7}, arch_sh3_nommu_up}
++	lds r4,MACH               ;!/* 0100nnnn00001010 lds <REG_N>,MACH    */{"lds",{A_REG_N,A_MACH},{HEX_4,REG_N,HEX_0,HEX_A}, arch_sh_up}
++	lds r4,MACL               ;!/* 0100nnnn00011010 lds <REG_N>,MACL    */{"lds",{A_REG_N,A_MACL},{HEX_4,REG_N,HEX_1,HEX_A}, arch_sh_up}
++	lds r4,PR                 ;!/* 0100nnnn00101010 lds <REG_N>,PR      */{"lds",{A_REG_N,A_PR},{HEX_4,REG_N,HEX_2,HEX_A}, arch_sh_up}
++	lds.l @r4+,MACH           ;!/* 0100nnnn00000110 lds.l @<REG_N>+,MACH*/{"lds.l",{A_INC_N,A_MACH},{HEX_4,REG_N,HEX_0,HEX_6}, arch_sh_up}
++	lds.l @r4+,MACL           ;!/* 0100nnnn00010110 lds.l @<REG_N>+,MACL*/{"lds.l",{A_INC_N,A_MACL},{HEX_4,REG_N,HEX_1,HEX_6}, arch_sh_up}
++	lds.l @r4+,PR             ;!/* 0100nnnn00100110 lds.l @<REG_N>+,PR  */{"lds.l",{A_INC_N,A_PR},{HEX_4,REG_N,HEX_2,HEX_6}, arch_sh_up}
++	ldtlb                     ;!/* 0000000000111000 ldtlb               */{"ldtlb",{0},{HEX_0,HEX_0,HEX_3,HEX_8}, arch_sh3_up}
++	mac.w @r5+,@r4+           ;!/* 0100nnnnmmmm1111 mac.w @<REG_M>+,@<REG_N>+*/{"mac.w",{A_INC_M,A_INC_N},{HEX_4,REG_N,REG_M,HEX_F}, arch_sh_up}
++	mov #4,r4                 ;!/* 1110nnnni8*1.... mov #<imm>,<REG_N>  */{"mov",{A_IMM,A_REG_N},{HEX_E,REG_N,IMM0_8}, arch_sh_up}
++	mov r5,r4                 ;!/* 0110nnnnmmmm0011 mov <REG_M>,<REG_N> */{"mov",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_3}, arch_sh_up}
++	mov.b r5,@(R0,r4)         ;!/* 0000nnnnmmmm0100 mov.b <REG_M>,@(R0,<REG_N>)*/{"mov.b",{ A_REG_M,A_IND_R0_REG_N},{HEX_0,REG_N,REG_M,HEX_4}, arch_sh_up}
++	mov.b r5,@-r4             ;!/* 0010nnnnmmmm0100 mov.b <REG_M>,@-<REG_N>*/{"mov.b",{ A_REG_M,A_DEC_N},{HEX_2,REG_N,REG_M,HEX_4}, arch_sh_up}
++	mov.b r5,@r4              ;!/* 0010nnnnmmmm0000 mov.b <REG_M>,@<REG_N>*/{"mov.b",{ A_REG_M,A_IND_N},{HEX_2,REG_N,REG_M,HEX_0}, arch_sh_up}
++	mov.b @(8,r5),R0          ;!/* 10000100mmmmi4*1 mov.b @(<disp>,<REG_M>),R0*/{"mov.b",{A_DISP_REG_M,A_R0},{HEX_8,HEX_4,REG_M,IMM0_4}, arch_sh_up}
++	mov.b @(8,GBR),R0         ;!/* 11000100i8*1.... mov.b @(<disp>,GBR),R0*/{"mov.b",{A_DISP_GBR,A_R0},{HEX_C,HEX_4,IMM0_8}, arch_sh_up}
++	mov.b @(R0,r5),r4         ;!/* 0000nnnnmmmm1100 mov.b @(R0,<REG_M>),<REG_N>*/{"mov.b",{A_IND_R0_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_C}, arch_sh_up}
++	mov.b @r5+,r4             ;!/* 0110nnnnmmmm0100 mov.b @<REG_M>+,<REG_N>*/{"mov.b",{A_INC_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_4}, arch_sh_up}
++	mov.b @r5,r4              ;!/* 0110nnnnmmmm0000 mov.b @<REG_M>,<REG_N>*/{"mov.b",{A_IND_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_0}, arch_sh_up}
++	mov.b R0,@(8,r5)          ;!/* 10000000mmmmi4*1 mov.b R0,@(<disp>,<REG_M>)*/{"mov.b",{A_R0,A_DISP_REG_M},{HEX_8,HEX_0,REG_M,IMM1_4}, arch_sh_up}
++	mov.b R0,@(8,GBR)         ;!/* 11000000i8*1.... mov.b R0,@(<disp>,GBR)*/{"mov.b",{A_R0,A_DISP_GBR},{HEX_C,HEX_0,IMM1_8}, arch_sh_up}
++	mov.l r5,@(8,r4)          ;!/* 0001nnnnmmmmi4*4 mov.l <REG_M>,@(<disp>,<REG_N>)*/{"mov.l",{ A_REG_M,A_DISP_REG_N},{HEX_1,REG_N,REG_M,IMM1_4BY4}, arch_sh_up}
++	mov.l r5,@(R0,r4)         ;!/* 0000nnnnmmmm0110 mov.l <REG_M>,@(R0,<REG_N>)*/{"mov.l",{ A_REG_M,A_IND_R0_REG_N},{HEX_0,REG_N,REG_M,HEX_6}, arch_sh_up}
++	mov.l r5,@-r4             ;!/* 0010nnnnmmmm0110 mov.l <REG_M>,@-<REG_N>*/{"mov.l",{ A_REG_M,A_DEC_N},{HEX_2,REG_N,REG_M,HEX_6}, arch_sh_up}
++	mov.l r5,@r4              ;!/* 0010nnnnmmmm0010 mov.l <REG_M>,@<REG_N>*/{"mov.l",{ A_REG_M,A_IND_N},{HEX_2,REG_N,REG_M,HEX_2}, arch_sh_up}
++	mov.l @(8,r5),r4          ;!/* 0101nnnnmmmmi4*4 mov.l @(<disp>,<REG_M>),<REG_N>*/{"mov.l",{A_DISP_REG_M,A_REG_N},{HEX_5,REG_N,REG_M,IMM0_4BY4}, arch_sh_up}
++	mov.l @(8,GBR),R0         ;!/* 11000110i8*4.... mov.l @(<disp>,GBR),R0*/{"mov.l",{A_DISP_GBR,A_R0},{HEX_C,HEX_6,IMM0_8BY4}, arch_sh_up}
++	mov.l @(end-.,PC),r4      ;!/* 1101nnnni8p4.... mov.l @(<adisp>,PC),<REG_N>*/{"mov.l",{A_DISP_PC,A_REG_N},{HEX_D,REG_N,PCRELIMM_8BY4}, arch_sh_up}
++	mov.l @(R0,r5),r4         ;!/* 0000nnnnmmmm1110 mov.l @(R0,<REG_M>),<REG_N>*/{"mov.l",{A_IND_R0_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_E}, arch_sh_up}
++	mov.l @r5+,r4             ;!/* 0110nnnnmmmm0110 mov.l @<REG_M>+,<REG_N>*/{"mov.l",{A_INC_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_6}, arch_sh_up}
++	mov.l @r5,r4              ;!/* 0110nnnnmmmm0010 mov.l @<REG_M>,<REG_N>*/{"mov.l",{A_IND_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_2}, arch_sh_up}
++	mov.l R0,@(8,GBR)         ;!/* 11000010i8*4.... mov.l R0,@(<disp>,GBR)*/{"mov.l",{A_R0,A_DISP_GBR},{HEX_C,HEX_2,IMM1_8BY4}, arch_sh_up}
++	mov.w r5,@(R0,r4)         ;!/* 0000nnnnmmmm0101 mov.w <REG_M>,@(R0,<REG_N>)*/{"mov.w",{ A_REG_M,A_IND_R0_REG_N},{HEX_0,REG_N,REG_M,HEX_5}, arch_sh_up}
++	mov.w r5,@-r4             ;!/* 0010nnnnmmmm0101 mov.w <REG_M>,@-<REG_N>*/{"mov.w",{ A_REG_M,A_DEC_N},{HEX_2,REG_N,REG_M,HEX_5}, arch_sh_up}
++	mov.w r5,@r4              ;!/* 0010nnnnmmmm0001 mov.w <REG_M>,@<REG_N>*/{"mov.w",{ A_REG_M,A_IND_N},{HEX_2,REG_N,REG_M,HEX_1}, arch_sh_up}
++	mov.w @(8,r5),R0          ;!/* 10000101mmmmi4*2 mov.w @(<disp>,<REG_M>),R0*/{"mov.w",{A_DISP_REG_M,A_R0},{HEX_8,HEX_5,REG_M,IMM0_4BY2}, arch_sh_up}
++	mov.w @(8,GBR),R0         ;!/* 11000101i8*2.... mov.w @(<disp>,GBR),R0*/{"mov.w",{A_DISP_GBR,A_R0},{HEX_C,HEX_5,IMM0_8BY2}, arch_sh_up}
++	mov.w @(8,PC),r4          ;!/* 1001nnnni8p2.... mov.w @(<disp>,PC),<REG_N>*/{"mov.w",{A_DISP_PC,A_REG_N},{HEX_9,REG_N,PCRELIMM_8BY2}, arch_sh_up}
++	mov.w @(R0,r5),r4         ;!/* 0000nnnnmmmm1101 mov.w @(R0,<REG_M>),<REG_N>*/{"mov.w",{A_IND_R0_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_D}, arch_sh_up}
++	mov.w @r5+,r4             ;!/* 0110nnnnmmmm0101 mov.w @<REG_M>+,<REG_N>*/{"mov.w",{A_INC_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_5}, arch_sh_up}
++	mov.w @r5,r4              ;!/* 0110nnnnmmmm0001 mov.w @<REG_M>,<REG_N>*/{"mov.w",{A_IND_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_1}, arch_sh_up}
++	mov.w R0,@(8,r5)          ;!/* 10000001mmmmi4*2 mov.w R0,@(<disp>,<REG_M>)*/{"mov.w",{A_R0,A_DISP_REG_M},{HEX_8,HEX_1,REG_M,IMM1_4BY2}, arch_sh_up}
++	mov.w R0,@(8,GBR)         ;!/* 11000001i8*2.... mov.w R0,@(<disp>,GBR)*/{"mov.w",{A_R0,A_DISP_GBR},{HEX_C,HEX_1,IMM1_8BY2}, arch_sh_up}
++	mova @(end-.,PC),R0       ;!/* 11000111i8p4.... mova @(<adisp>,PC),R0*/{"mova",{A_DISP_PC,A_R0},{HEX_C,HEX_7,PCRELIMM_8BY4}, arch_sh_up}
++	movca.l R0,@r4            ;!/* 0000nnnn11000011 movca.l R0,@<REG_N> */{"movca.l",{A_R0,A_IND_N},{HEX_0,REG_N,HEX_C,HEX_3}, arch_sh4_nommu_nofpu_up}
++	movt r4                   ;!/* 0000nnnn00101001 movt <REG_N>        */{"movt",{A_REG_N},{HEX_0,REG_N,HEX_2,HEX_9}, arch_sh_up}
++	muls.w r5,r4              ;!/* 0010nnnnmmmm1111 muls.w <REG_M>,<REG_N>*/{"muls.w",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_F}, arch_sh_up}
++	muls r5,r4                ;!/* 0010nnnnmmmm1111 muls <REG_M>,<REG_N>*/{"muls",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_F}, arch_sh_up}
++	mul.l r5,r4               ;!/* 0000nnnnmmmm0111 mul.l <REG_M>,<REG_N>*/{"mul.l",{ A_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_7}, arch_sh2_up}
++	mulu.w r5,r4              ;!/* 0010nnnnmmmm1110 mulu.w <REG_M>,<REG_N>*/{"mulu.w",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_E}, arch_sh_up}
++	mulu r5,r4                ;!/* 0010nnnnmmmm1110 mulu <REG_M>,<REG_N>*/{"mulu",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_E}, arch_sh_up}
++	neg r5,r4                 ;!/* 0110nnnnmmmm1011 neg <REG_M>,<REG_N> */{"neg",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_B}, arch_sh_up}
++	negc r5,r4                ;!/* 0110nnnnmmmm1010 negc <REG_M>,<REG_N>*/{"negc",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_A}, arch_sh_up}
++	nop                       ;!/* 0000000000001001 nop                 */{"nop",{0},{HEX_0,HEX_0,HEX_0,HEX_9}, arch_sh_up}
++	not r5,r4                 ;!/* 0110nnnnmmmm0111 not <REG_M>,<REG_N> */{"not",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_7}, arch_sh_up}
++	ocbi @r4                  ;!/* 0000nnnn10010011 ocbi @<REG_N>       */{"ocbi",{A_IND_N},{HEX_0,REG_N,HEX_9,HEX_3}, arch_sh4_nommu_nofpu_up}
++	ocbp @r4                  ;!/* 0000nnnn10100011 ocbp @<REG_N>       */{"ocbp",{A_IND_N},{HEX_0,REG_N,HEX_A,HEX_3}, arch_sh4_nommu_nofpu_up}
++	ocbwb @r4                 ;!/* 0000nnnn10110011 ocbwb @<REG_N>      */{"ocbwb",{A_IND_N},{HEX_0,REG_N,HEX_B,HEX_3}, arch_sh4_nommu_nofpu_up}
++	or #4,R0                  ;!/* 11001011i8*1.... or #<imm>,R0        */{"or",{A_IMM,A_R0},{HEX_C,HEX_B,IMM0_8}, arch_sh_up}
++	or r5,r4                  ;!/* 0010nnnnmmmm1011 or <REG_M>,<REG_N>  */{"or",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_B}, arch_sh_up}
++	or.b #4,@(R0,GBR)         ;!/* 11001111i8*1.... or.b #<imm>,@(R0,GBR)*/{"or.b",{A_IMM,A_R0_GBR},{HEX_C,HEX_F,IMM0_8}, arch_sh_up}
++	pref @r4                  ;!/* 0000nnnn10000011 pref @<REG_N>       */{"pref",{A_IND_N},{HEX_0,REG_N,HEX_8,HEX_3}, arch_sh2a_nofpu_or_sh4_nommu_nofpu_up}
++	rotcl r4                  ;!/* 0100nnnn00100100 rotcl <REG_N>       */{"rotcl",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_4}, arch_sh_up}
++	rotcr r4                  ;!/* 0100nnnn00100101 rotcr <REG_N>       */{"rotcr",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_5}, arch_sh_up}
++	rotl r4                   ;!/* 0100nnnn00000100 rotl <REG_N>        */{"rotl",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_4}, arch_sh_up}
++	rotr r4                   ;!/* 0100nnnn00000101 rotr <REG_N>        */{"rotr",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_5}, arch_sh_up}
++	rte                       ;!/* 0000000000101011 rte                 */{"rte",{0},{HEX_0,HEX_0,HEX_2,HEX_B}, arch_sh_up}
++	rts                       ;!/* 0000000000001011 rts                 */{"rts",{0},{HEX_0,HEX_0,HEX_0,HEX_B}, arch_sh_up}
++	sets                      ;!/* 0000000001011000 sets                */{"sets",{0},{HEX_0,HEX_0,HEX_5,HEX_8}, arch_sh_up}
++	sett                      ;!/* 0000000000011000 sett                */{"sett",{0},{HEX_0,HEX_0,HEX_1,HEX_8}, arch_sh_up}
++	shad r5,r4                ;!/* 0100nnnnmmmm1100 shad <REG_M>,<REG_N>*/{"shad",{ A_REG_M,A_REG_N},{HEX_4,REG_N,REG_M,HEX_C}, arch_sh2a_nofpu_or_sh3_nommu_up}
++	shld r5,r4                ;!/* 0100nnnnmmmm1101 shld <REG_M>,<REG_N>*/{"shld",{ A_REG_M,A_REG_N},{HEX_4,REG_N,REG_M,HEX_D}, arch_sh2a_nofpu_or_sh3_nommu_up}
++	shal r4                   ;!/* 0100nnnn00100000 shal <REG_N>        */{"shal",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_0}, arch_sh_up}
++	shar r4                   ;!/* 0100nnnn00100001 shar <REG_N>        */{"shar",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_1}, arch_sh_up}
++	shll r4                   ;!/* 0100nnnn00000000 shll <REG_N>        */{"shll",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_0}, arch_sh_up}
++	shll16 r4                 ;!/* 0100nnnn00101000 shll16 <REG_N>      */{"shll16",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_8}, arch_sh_up}
++	shll2 r4                  ;!/* 0100nnnn00001000 shll2 <REG_N>       */{"shll2",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_8}, arch_sh_up}
++	shll8 r4                  ;!/* 0100nnnn00011000 shll8 <REG_N>       */{"shll8",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_8}, arch_sh_up}
++	shlr r4                   ;!/* 0100nnnn00000001 shlr <REG_N>        */{"shlr",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_1}, arch_sh_up}
++	shlr16 r4                 ;!/* 0100nnnn00101001 shlr16 <REG_N>      */{"shlr16",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_9}, arch_sh_up}
++	shlr2 r4                  ;!/* 0100nnnn00001001 shlr2 <REG_N>       */{"shlr2",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_9}, arch_sh_up}
++	shlr8 r4                  ;!/* 0100nnnn00011001 shlr8 <REG_N>       */{"shlr8",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_9}, arch_sh_up}
++	sleep                     ;!/* 0000000000011011 sleep               */{"sleep",{0},{HEX_0,HEX_0,HEX_1,HEX_B}, arch_sh_up}
++	stc SR,r4                 ;!/* 0000nnnn00000010 stc SR,<REG_N>      */{"stc",{A_SR,A_REG_N},{HEX_0,REG_N,HEX_0,HEX_2}, arch_sh_up}
++	stc GBR,r4                ;!/* 0000nnnn00010010 stc GBR,<REG_N>     */{"stc",{A_GBR,A_REG_N},{HEX_0,REG_N,HEX_1,HEX_2}, arch_sh_up}
++	stc VBR,r4                ;!/* 0000nnnn00100010 stc VBR,<REG_N>     */{"stc",{A_VBR,A_REG_N},{HEX_0,REG_N,HEX_2,HEX_2}, arch_sh_up}
++	stc SSR,r4                ;!/* 0000nnnn00110010 stc SSR,<REG_N>     */{"stc",{A_SSR,A_REG_N},{HEX_0,REG_N,HEX_3,HEX_2}, arch_sh3_nommu_up}
++	stc SPC,r4                ;!/* 0000nnnn01000010 stc SPC,<REG_N>     */{"stc",{A_SPC,A_REG_N},{HEX_0,REG_N,HEX_4,HEX_2}, arch_sh3_nommu_up}
++	stc SGR,r4                ;!/* 0000nnnn00111010 stc SGR,<REG_N>     */{"stc",{A_SGR,A_REG_N},{HEX_0,REG_N,HEX_3,HEX_A}, arch_sh4_nommu_nofpu_up}
++	stc DBR,r4                ;!/* 0000nnnn11111010 stc DBR,<REG_N>     */{"stc",{A_DBR,A_REG_N},{HEX_0,REG_N,HEX_F,HEX_A}, arch_sh4_nommu_nofpu_up}
++	stc r1_bank,r4            ;!/* 0000nnnn1xxx0010 stc Rn_BANK,<REG_N> */{"stc",{A_REG_B,A_REG_N},{HEX_0,REG_N,REG_B,HEX_2}, arch_sh3_nommu_up}
++	stc.l SR,@-r4             ;!/* 0100nnnn00000011 stc.l SR,@-<REG_N>  */{"stc.l",{A_SR,A_DEC_N},{HEX_4,REG_N,HEX_0,HEX_3}, arch_sh_up}
++	stc.l VBR,@-r4            ;!/* 0100nnnn00100011 stc.l VBR,@-<REG_N> */{"stc.l",{A_VBR,A_DEC_N},{HEX_4,REG_N,HEX_2,HEX_3}, arch_sh_up}
++	stc.l SSR,@-r4            ;!/* 0100nnnn00110011 stc.l SSR,@-<REG_N> */{"stc.l",{A_SSR,A_DEC_N},{HEX_4,REG_N,HEX_3,HEX_3}, arch_sh3_nommu_up}
++	stc.l SPC,@-r4            ;!/* 0100nnnn01000011 stc.l SPC,@-<REG_N> */{"stc.l",{A_SPC,A_DEC_N},{HEX_4,REG_N,HEX_4,HEX_3}, arch_sh3_nommu_up}
++	stc.l GBR,@-r4            ;!/* 0100nnnn00010011 stc.l GBR,@-<REG_N> */{"stc.l",{A_GBR,A_DEC_N},{HEX_4,REG_N,HEX_1,HEX_3}, arch_sh_up}
++	stc.l SGR,@-r4            ;!/* 0100nnnn00110010 stc.l SGR,@-<REG_N> */{"stc.l",{A_SGR,A_DEC_N},{HEX_4,REG_N,HEX_3,HEX_2}, arch_sh4_nommu_nofpu_up}
++	stc.l DBR,@-r4            ;!/* 0100nnnn11110010 stc.l DBR,@-<REG_N> */{"stc.l",{A_DBR,A_DEC_N},{HEX_4,REG_N,HEX_F,HEX_2}, arch_sh4_nommu_nofpu_up}
++	stc.l r1_bank,@-r4        ;!/* 0100nnnn1xxx0011 stc.l Rn_BANK,@-<REG_N> */{"stc.l",{A_REG_B,A_DEC_N},{HEX_4,REG_N,REG_B,HEX_3}, arch_sh3_nommu_up}
++	sts MACH,r4               ;!/* 0000nnnn00001010 sts MACH,<REG_N>    */{"sts",{A_MACH,A_REG_N},{HEX_0,REG_N,HEX_0,HEX_A}, arch_sh_up}
++	sts MACL,r4               ;!/* 0000nnnn00011010 sts MACL,<REG_N>    */{"sts",{A_MACL,A_REG_N},{HEX_0,REG_N,HEX_1,HEX_A}, arch_sh_up}
++	sts PR,r4                 ;!/* 0000nnnn00101010 sts PR,<REG_N>      */{"sts",{A_PR,A_REG_N},{HEX_0,REG_N,HEX_2,HEX_A}, arch_sh_up}
++	sts.l MACH,@-r4           ;!/* 0100nnnn00000010 sts.l MACH,@-<REG_N>*/{"sts.l",{A_MACH,A_DEC_N},{HEX_4,REG_N,HEX_0,HEX_2}, arch_sh_up}
++	sts.l MACL,@-r4           ;!/* 0100nnnn00010010 sts.l MACL,@-<REG_N>*/{"sts.l",{A_MACL,A_DEC_N},{HEX_4,REG_N,HEX_1,HEX_2}, arch_sh_up}
++	sts.l PR,@-r4             ;!/* 0100nnnn00100010 sts.l PR,@-<REG_N>  */{"sts.l",{A_PR,A_DEC_N},{HEX_4,REG_N,HEX_2,HEX_2}, arch_sh_up}
++	sub r5,r4                 ;!/* 0011nnnnmmmm1000 sub <REG_M>,<REG_N> */{"sub",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_8}, arch_sh_up}
++	subc r5,r4                ;!/* 0011nnnnmmmm1010 subc <REG_M>,<REG_N>*/{"subc",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_A}, arch_sh_up}
++	subv r5,r4                ;!/* 0011nnnnmmmm1011 subv <REG_M>,<REG_N>*/{"subv",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_B}, arch_sh_up}
++	swap.b r5,r4              ;!/* 0110nnnnmmmm1000 swap.b <REG_M>,<REG_N>*/{"swap.b",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_8}, arch_sh_up}
++	swap.w r5,r4              ;!/* 0110nnnnmmmm1001 swap.w <REG_M>,<REG_N>*/{"swap.w",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_9}, arch_sh_up}
++	synco                     ;!/* 0000000010101011 synco               */{"synco",{0},{HEX_0,HEX_0,HEX_A,HEX_B}, arch_st40_300_nofpu_or_sh4a_nofpu_up}
++	tas.b @r4                 ;!/* 0100nnnn00011011 tas.b @<REG_N>      */{"tas.b",{A_IND_N},{HEX_4,REG_N,HEX_1,HEX_B}, arch_sh_up}
++	trapa #4                  ;!/* 11000011i8*1.... trapa #<imm>        */{"trapa",{A_IMM},{HEX_C,HEX_3,IMM0_8}, arch_sh_up}
++	tst #4,R0                 ;!/* 11001000i8*1.... tst #<imm>,R0       */{"tst",{A_IMM,A_R0},{HEX_C,HEX_8,IMM0_8}, arch_sh_up}
++	tst r5,r4                 ;!/* 0010nnnnmmmm1000 tst <REG_M>,<REG_N> */{"tst",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_8}, arch_sh_up}
++	tst.b #4,@(R0,GBR)        ;!/* 11001100i8*1.... tst.b #<imm>,@(R0,GBR)*/{"tst.b",{A_IMM,A_R0_GBR},{HEX_C,HEX_C,IMM0_8}, arch_sh_up}
++	xor #4,R0                 ;!/* 11001010i8*1.... xor #<imm>,R0       */{"xor",{A_IMM,A_R0},{HEX_C,HEX_A,IMM0_8}, arch_sh_up}
++	xor r5,r4                 ;!/* 0010nnnnmmmm1010 xor <REG_M>,<REG_N> */{"xor",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_A}, arch_sh_up}
++	xor.b #4,@(R0,GBR)        ;!/* 11001110i8*1.... xor.b #<imm>,@(R0,GBR)*/{"xor.b",{A_IMM,A_R0_GBR},{HEX_C,HEX_E,IMM0_8}, arch_sh_up}
++	xtrct r5,r4               ;!/* 0010nnnnmmmm1101 xtrct <REG_M>,<REG_N>*/{"xtrct",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_D}, arch_sh_up}
++	dt r4                     ;!/* 0100nnnn00010000 dt <REG_N>          */{"dt",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_0}, arch_sh2_up}
++	dmuls.l r5,r4             ;!/* 0011nnnnmmmm1101 dmuls.l <REG_M>,<REG_N>*/{"dmuls.l",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_D}, arch_sh2_up}
++	dmulu.l r5,r4             ;!/* 0011nnnnmmmm0101 dmulu.l <REG_M>,<REG_N>*/{"dmulu.l",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_5}, arch_sh2_up}
++	mac.l @r5+,@r4+           ;!/* 0000nnnnmmmm1111 mac.l @<REG_M>+,@<REG_N>+*/{"mac.l",{A_INC_M,A_INC_N},{HEX_0,REG_N,REG_M,HEX_F}, arch_sh2_up}
++	braf r4                   ;!/* 0000nnnn00100011 braf <REG_N>       */{"braf",{A_REG_N},{HEX_0,REG_N,HEX_2,HEX_3}, arch_sh2_up}
++	bsrf r4                   ;!/* 0000nnnn00000011 bsrf <REG_N>       */{"bsrf",{A_REG_N},{HEX_0,REG_N,HEX_0,HEX_3}, arch_sh2_up}
++	mulr R0,r4                ;!/* 0100nnnn10000000 mulr R0,<REG_N> */       {"mulr",{A_R0,A_REG_N},{HEX_4,REG_N,HEX_8,HEX_0}, arch_st40_300_nofpu_or_sh2a_nofpu_up}
++	.align 2
++end:
+diff -Naur binutils-2.18.50.0.8/gas/testsuite/gas/sh/arch/st40-300-or-sh4a.s binutils-2.18.50.0.8-stm/gas/testsuite/gas/sh/arch/st40-300-or-sh4a.s
+--- binutils-2.18.50.0.8/gas/testsuite/gas/sh/arch/st40-300-or-sh4a.s	1970-01-01 01:00:00.000000000 +0100
++++ binutils-2.18.50.0.8-stm/gas/testsuite/gas/sh/arch/st40-300-or-sh4a.s	2008-07-22 16:54:24.000000000 +0100
+@@ -0,0 +1,266 @@
++! Generated file. DO NOT EDIT.
++!
++! This file was generated by gas/testsuite/gas/sh/arch/arch.exp .
++! This file should contain every instruction valid on
++! architecture st40-300-or-sh4a but no more.
++! If the tests are failing because the expected results
++! have changed then run 'make check' and copy the new file
++! from <objdir>/gas/testsuite/st40-300-or-sh4a.s
++! to   <srcdir>/gas/testsuite/gas/sh/arch/st40-300-or-sh4a.s .
++! Make sure there are no unexpected or missing instructions.
++
++	.section .text
++st40_300_or_sh4a:
++! Instructions introduced into st40-300-or-sh4a
++	fpchg                     ;!/* 1111011111111101 fpchg               */{"fpchg",{0},{HEX_F,HEX_7,HEX_F,HEX_D}, arch_st40_300_or_sh4a_up}
++
++! Instructions inherited from ancestors: sh sh2 sh2a-nofpu-or-sh3-nommu sh2a-nofpu-or-sh4-nommu-nofpu sh2a-or-sh3e sh2a-or-sh4 sh2e sh3 sh3-nommu sh3e sh4 sh4-nofpu sh4-nommu-nofpu st40-300-nofpu-or-sh4a-nofpu
++	add #4,r4                 ;!/* 0111nnnni8*1.... add #<imm>,<REG_N>  */{"add",{A_IMM,A_REG_N},{HEX_7,REG_N,IMM0_8}, arch_sh_up}
++	add r5,r4                 ;!/* 0011nnnnmmmm1100 add <REG_M>,<REG_N> */{"add",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_C}, arch_sh_up}
++	addc r5,r4                ;!/* 0011nnnnmmmm1110 addc <REG_M>,<REG_N>*/{"addc",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_E}, arch_sh_up}
++	addv r5,r4                ;!/* 0011nnnnmmmm1111 addv <REG_M>,<REG_N>*/{"addv",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_F}, arch_sh_up}
++	and #4,R0                 ;!/* 11001001i8*1.... and #<imm>,R0       */{"and",{A_IMM,A_R0},{HEX_C,HEX_9,IMM0_8}, arch_sh_up}
++	and r5,r4                 ;!/* 0010nnnnmmmm1001 and <REG_M>,<REG_N> */{"and",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_9}, arch_sh_up}
++	and.b #4,@(R0,GBR)        ;!/* 11001101i8*1.... and.b #<imm>,@(R0,GBR)*/{"and.b",{A_IMM,A_R0_GBR},{HEX_C,HEX_D,IMM0_8}, arch_sh_up}
++	bra .+8                   ;!/* 1010i12......... bra <bdisp12>       */{"bra",{A_BDISP12},{HEX_A,BRANCH_12}, arch_sh_up}
++	bsr .+8                   ;!/* 1011i12......... bsr <bdisp12>       */{"bsr",{A_BDISP12},{HEX_B,BRANCH_12}, arch_sh_up}
++	bt .+8                    ;!/* 10001001i8p1.... bt <bdisp8>         */{"bt",{A_BDISP8},{HEX_8,HEX_9,BRANCH_8}, arch_sh_up}
++	bf .+8                    ;!/* 10001011i8p1.... bf <bdisp8>         */{"bf",{A_BDISP8},{HEX_8,HEX_B,BRANCH_8}, arch_sh_up}
++	bt.s .+8                  ;!/* 10001101i8p1.... bt.s <bdisp8>       */{"bt.s",{A_BDISP8},{HEX_8,HEX_D,BRANCH_8}, arch_sh2_up}
++	bt/s .+8                  ;!/* 10001101i8p1.... bt/s <bdisp8>       */{"bt/s",{A_BDISP8},{HEX_8,HEX_D,BRANCH_8}, arch_sh2_up}
++	bf.s .+8                  ;!/* 10001111i8p1.... bf.s <bdisp8>       */{"bf.s",{A_BDISP8},{HEX_8,HEX_F,BRANCH_8}, arch_sh2_up}
++	bf/s .+8                  ;!/* 10001111i8p1.... bf/s <bdisp8>       */{"bf/s",{A_BDISP8},{HEX_8,HEX_F,BRANCH_8}, arch_sh2_up}
++	clrmac                    ;!/* 0000000000101000 clrmac              */{"clrmac",{0},{HEX_0,HEX_0,HEX_2,HEX_8}, arch_sh_up}
++	clrs                      ;!/* 0000000001001000 clrs                */{"clrs",{0},{HEX_0,HEX_0,HEX_4,HEX_8}, arch_sh_up}
++	clrt                      ;!/* 0000000000001000 clrt                */{"clrt",{0},{HEX_0,HEX_0,HEX_0,HEX_8}, arch_sh_up}
++	cmp/eq #4,R0              ;!/* 10001000i8*1.... cmp/eq #<imm>,R0    */{"cmp/eq",{A_IMM,A_R0},{HEX_8,HEX_8,IMM0_8}, arch_sh_up}
++	cmp/eq r5,r4              ;!/* 0011nnnnmmmm0000 cmp/eq <REG_M>,<REG_N>*/{"cmp/eq",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_0}, arch_sh_up}
++	cmp/ge r5,r4              ;!/* 0011nnnnmmmm0011 cmp/ge <REG_M>,<REG_N>*/{"cmp/ge",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_3}, arch_sh_up}
++	cmp/gt r5,r4              ;!/* 0011nnnnmmmm0111 cmp/gt <REG_M>,<REG_N>*/{"cmp/gt",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_7}, arch_sh_up}
++	cmp/hi r5,r4              ;!/* 0011nnnnmmmm0110 cmp/hi <REG_M>,<REG_N>*/{"cmp/hi",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_6}, arch_sh_up}
++	cmp/hs r5,r4              ;!/* 0011nnnnmmmm0010 cmp/hs <REG_M>,<REG_N>*/{"cmp/hs",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_2}, arch_sh_up}
++	cmp/pl r4                 ;!/* 0100nnnn00010101 cmp/pl <REG_N>      */{"cmp/pl",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_5}, arch_sh_up}
++	cmp/pz r4                 ;!/* 0100nnnn00010001 cmp/pz <REG_N>      */{"cmp/pz",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_1}, arch_sh_up}
++	cmp/str r5,r4             ;!/* 0010nnnnmmmm1100 cmp/str <REG_M>,<REG_N>*/{"cmp/str",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_C}, arch_sh_up}
++	div0s r5,r4               ;!/* 0010nnnnmmmm0111 div0s <REG_M>,<REG_N>*/{"div0s",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_7}, arch_sh_up}
++	div0u                     ;!/* 0000000000011001 div0u               */{"div0u",{0},{HEX_0,HEX_0,HEX_1,HEX_9}, arch_sh_up}
++	div1 r5,r4                ;!/* 0011nnnnmmmm0100 div1 <REG_M>,<REG_N>*/{"div1",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_4}, arch_sh_up}
++	exts.b r5,r4              ;!/* 0110nnnnmmmm1110 exts.b <REG_M>,<REG_N>*/{"exts.b",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_E}, arch_sh_up}
++	exts.w r5,r4              ;!/* 0110nnnnmmmm1111 exts.w <REG_M>,<REG_N>*/{"exts.w",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_F}, arch_sh_up}
++	extu.b r5,r4              ;!/* 0110nnnnmmmm1100 extu.b <REG_M>,<REG_N>*/{"extu.b",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_C}, arch_sh_up}
++	extu.w r5,r4              ;!/* 0110nnnnmmmm1101 extu.w <REG_M>,<REG_N>*/{"extu.w",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_D}, arch_sh_up}
++	icbi @r4                  ;!/* 0000nnnn11100011 icbi @<REG_N>       */{"icbi",{A_IND_N},{HEX_0,REG_N,HEX_E,HEX_3}, arch_st40_300_nofpu_or_sh4a_nofpu_up}
++	jmp @r4                   ;!/* 0100nnnn00101011 jmp @<REG_N>        */{"jmp",{A_IND_N},{HEX_4,REG_N,HEX_2,HEX_B}, arch_sh_up}
++	jsr @r4                   ;!/* 0100nnnn00001011 jsr @<REG_N>        */{"jsr",{A_IND_N},{HEX_4,REG_N,HEX_0,HEX_B}, arch_sh_up}
++	ldc r4,SR                 ;!/* 0100nnnn00001110 ldc <REG_N>,SR      */{"ldc",{A_REG_N,A_SR},{HEX_4,REG_N,HEX_0,HEX_E}, arch_sh_up}
++	ldc r4,GBR                ;!/* 0100nnnn00011110 ldc <REG_N>,GBR     */{"ldc",{A_REG_N,A_GBR},{HEX_4,REG_N,HEX_1,HEX_E}, arch_sh_up}
++	ldc r4,SGR                ;!/* 0100nnnn00111010 ldc <REG_N>,SGR     */{"ldc",{A_REG_N,A_SGR},{HEX_4,REG_N,HEX_3,HEX_A}, arch_sh4_nommu_nofpu_up}
++	ldc r4,VBR                ;!/* 0100nnnn00101110 ldc <REG_N>,VBR     */{"ldc",{A_REG_N,A_VBR},{HEX_4,REG_N,HEX_2,HEX_E}, arch_sh_up}
++	ldc r4,SSR                ;!/* 0100nnnn00111110 ldc <REG_N>,SSR     */{"ldc",{A_REG_N,A_SSR},{HEX_4,REG_N,HEX_3,HEX_E}, arch_sh3_nommu_up}
++	ldc r4,SPC                ;!/* 0100nnnn01001110 ldc <REG_N>,SPC     */{"ldc",{A_REG_N,A_SPC},{HEX_4,REG_N,HEX_4,HEX_E}, arch_sh3_nommu_up}
++	ldc r4,DBR                ;!/* 0100nnnn11111010 ldc <REG_N>,DBR     */{"ldc",{A_REG_N,A_DBR},{HEX_4,REG_N,HEX_F,HEX_A}, arch_sh4_nommu_nofpu_up}
++	ldc r4,r1_bank            ;!/* 0100nnnn1xxx1110 ldc <REG_N>,Rn_BANK */{"ldc",{A_REG_N,A_REG_B},{HEX_4,REG_N,REG_B,HEX_E}, arch_sh3_nommu_up}
++	ldc.l @r4+,SR             ;!/* 0100nnnn00000111 ldc.l @<REG_N>+,SR  */{"ldc.l",{A_INC_N,A_SR},{HEX_4,REG_N,HEX_0,HEX_7}, arch_sh_up}
++	ldc.l @r4+,GBR            ;!/* 0100nnnn00010111 ldc.l @<REG_N>+,GBR */{"ldc.l",{A_INC_N,A_GBR},{HEX_4,REG_N,HEX_1,HEX_7}, arch_sh_up}
++	ldc.l @r4+,VBR            ;!/* 0100nnnn00100111 ldc.l @<REG_N>+,VBR */{"ldc.l",{A_INC_N,A_VBR},{HEX_4,REG_N,HEX_2,HEX_7}, arch_sh_up}
++	ldc.l @r4+,SGR            ;!/* 0100nnnn00110110 ldc.l @<REG_N>+,SGR */{"ldc.l",{A_INC_N,A_SGR},{HEX_4,REG_N,HEX_3,HEX_6}, arch_sh4_nommu_nofpu_up}
++	ldc.l @r4+,SSR            ;!/* 0100nnnn00110111 ldc.l @<REG_N>+,SSR */{"ldc.l",{A_INC_N,A_SSR},{HEX_4,REG_N,HEX_3,HEX_7}, arch_sh3_nommu_up}
++	ldc.l @r4+,SPC            ;!/* 0100nnnn01000111 ldc.l @<REG_N>+,SPC */{"ldc.l",{A_INC_N,A_SPC},{HEX_4,REG_N,HEX_4,HEX_7}, arch_sh3_nommu_up}
++	ldc.l @r4+,DBR            ;!/* 0100nnnn11110110 ldc.l @<REG_N>+,DBR */{"ldc.l",{A_INC_N,A_DBR},{HEX_4,REG_N,HEX_F,HEX_6}, arch_sh4_nommu_nofpu_up}
++	ldc.l @r4+,r1_bank        ;!/* 0100nnnn1xxx0111 ldc.l @<REG_N>+,Rn_BANK */{"ldc.l",{A_INC_N,A_REG_B},{HEX_4,REG_N,REG_B,HEX_7}, arch_sh3_nommu_up}
++	lds r4,MACH               ;!/* 0100nnnn00001010 lds <REG_N>,MACH    */{"lds",{A_REG_N,A_MACH},{HEX_4,REG_N,HEX_0,HEX_A}, arch_sh_up}
++	lds r4,MACL               ;!/* 0100nnnn00011010 lds <REG_N>,MACL    */{"lds",{A_REG_N,A_MACL},{HEX_4,REG_N,HEX_1,HEX_A}, arch_sh_up}
++	lds r4,PR                 ;!/* 0100nnnn00101010 lds <REG_N>,PR      */{"lds",{A_REG_N,A_PR},{HEX_4,REG_N,HEX_2,HEX_A}, arch_sh_up}
++	lds r4,FPUL               ;!/* 0100nnnn01011010 lds <REG_N>,FPUL    */{"lds",{A_REG_M,FPUL_N},{HEX_4,REG_M,HEX_5,HEX_A}, arch_sh2e_up}
++	lds r5,FPSCR              ;!/* 0100nnnn01101010 lds <REG_M>,FPSCR   */{"lds",{A_REG_M,FPSCR_N},{HEX_4,REG_M,HEX_6,HEX_A}, arch_sh2e_up}
++	lds.l @r4+,MACH           ;!/* 0100nnnn00000110 lds.l @<REG_N>+,MACH*/{"lds.l",{A_INC_N,A_MACH},{HEX_4,REG_N,HEX_0,HEX_6}, arch_sh_up}
++	lds.l @r4+,MACL           ;!/* 0100nnnn00010110 lds.l @<REG_N>+,MACL*/{"lds.l",{A_INC_N,A_MACL},{HEX_4,REG_N,HEX_1,HEX_6}, arch_sh_up}
++	lds.l @r4+,PR             ;!/* 0100nnnn00100110 lds.l @<REG_N>+,PR  */{"lds.l",{A_INC_N,A_PR},{HEX_4,REG_N,HEX_2,HEX_6}, arch_sh_up}
++	lds.l @r5+,FPUL           ;!/* 0100nnnn01010110 lds.l @<REG_M>+,FPUL*/{"lds.l",{A_INC_M,FPUL_N},{HEX_4,REG_M,HEX_5,HEX_6}, arch_sh2e_up}
++	lds.l @r5+,FPSCR          ;!/* 0100nnnn01100110 lds.l @<REG_M>+,FPSCR*/{"lds.l",{A_INC_M,FPSCR_N},{HEX_4,REG_M,HEX_6,HEX_6}, arch_sh2e_up}
++	ldtlb                     ;!/* 0000000000111000 ldtlb               */{"ldtlb",{0},{HEX_0,HEX_0,HEX_3,HEX_8}, arch_sh3_up}
++	mac.w @r5+,@r4+           ;!/* 0100nnnnmmmm1111 mac.w @<REG_M>+,@<REG_N>+*/{"mac.w",{A_INC_M,A_INC_N},{HEX_4,REG_N,REG_M,HEX_F}, arch_sh_up}
++	mov #4,r4                 ;!/* 1110nnnni8*1.... mov #<imm>,<REG_N>  */{"mov",{A_IMM,A_REG_N},{HEX_E,REG_N,IMM0_8}, arch_sh_up}
++	mov r5,r4                 ;!/* 0110nnnnmmmm0011 mov <REG_M>,<REG_N> */{"mov",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_3}, arch_sh_up}
++	mov.b r5,@(R0,r4)         ;!/* 0000nnnnmmmm0100 mov.b <REG_M>,@(R0,<REG_N>)*/{"mov.b",{ A_REG_M,A_IND_R0_REG_N},{HEX_0,REG_N,REG_M,HEX_4}, arch_sh_up}
++	mov.b r5,@-r4             ;!/* 0010nnnnmmmm0100 mov.b <REG_M>,@-<REG_N>*/{"mov.b",{ A_REG_M,A_DEC_N},{HEX_2,REG_N,REG_M,HEX_4}, arch_sh_up}
++	mov.b r5,@r4              ;!/* 0010nnnnmmmm0000 mov.b <REG_M>,@<REG_N>*/{"mov.b",{ A_REG_M,A_IND_N},{HEX_2,REG_N,REG_M,HEX_0}, arch_sh_up}
++	mov.b @(8,r5),R0          ;!/* 10000100mmmmi4*1 mov.b @(<disp>,<REG_M>),R0*/{"mov.b",{A_DISP_REG_M,A_R0},{HEX_8,HEX_4,REG_M,IMM0_4}, arch_sh_up}
++	mov.b @(8,GBR),R0         ;!/* 11000100i8*1.... mov.b @(<disp>,GBR),R0*/{"mov.b",{A_DISP_GBR,A_R0},{HEX_C,HEX_4,IMM0_8}, arch_sh_up}
++	mov.b @(R0,r5),r4         ;!/* 0000nnnnmmmm1100 mov.b @(R0,<REG_M>),<REG_N>*/{"mov.b",{A_IND_R0_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_C}, arch_sh_up}
++	mov.b @r5+,r4             ;!/* 0110nnnnmmmm0100 mov.b @<REG_M>+,<REG_N>*/{"mov.b",{A_INC_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_4}, arch_sh_up}
++	mov.b @r5,r4              ;!/* 0110nnnnmmmm0000 mov.b @<REG_M>,<REG_N>*/{"mov.b",{A_IND_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_0}, arch_sh_up}
++	mov.b R0,@(8,r5)          ;!/* 10000000mmmmi4*1 mov.b R0,@(<disp>,<REG_M>)*/{"mov.b",{A_R0,A_DISP_REG_M},{HEX_8,HEX_0,REG_M,IMM1_4}, arch_sh_up}
++	mov.b R0,@(8,GBR)         ;!/* 11000000i8*1.... mov.b R0,@(<disp>,GBR)*/{"mov.b",{A_R0,A_DISP_GBR},{HEX_C,HEX_0,IMM1_8}, arch_sh_up}
++	mov.l r5,@(8,r4)          ;!/* 0001nnnnmmmmi4*4 mov.l <REG_M>,@(<disp>,<REG_N>)*/{"mov.l",{ A_REG_M,A_DISP_REG_N},{HEX_1,REG_N,REG_M,IMM1_4BY4}, arch_sh_up}
++	mov.l r5,@(R0,r4)         ;!/* 0000nnnnmmmm0110 mov.l <REG_M>,@(R0,<REG_N>)*/{"mov.l",{ A_REG_M,A_IND_R0_REG_N},{HEX_0,REG_N,REG_M,HEX_6}, arch_sh_up}
++	mov.l r5,@-r4             ;!/* 0010nnnnmmmm0110 mov.l <REG_M>,@-<REG_N>*/{"mov.l",{ A_REG_M,A_DEC_N},{HEX_2,REG_N,REG_M,HEX_6}, arch_sh_up}
++	mov.l r5,@r4              ;!/* 0010nnnnmmmm0010 mov.l <REG_M>,@<REG_N>*/{"mov.l",{ A_REG_M,A_IND_N},{HEX_2,REG_N,REG_M,HEX_2}, arch_sh_up}
++	mov.l @(8,r5),r4          ;!/* 0101nnnnmmmmi4*4 mov.l @(<disp>,<REG_M>),<REG_N>*/{"mov.l",{A_DISP_REG_M,A_REG_N},{HEX_5,REG_N,REG_M,IMM0_4BY4}, arch_sh_up}
++	mov.l @(8,GBR),R0         ;!/* 11000110i8*4.... mov.l @(<disp>,GBR),R0*/{"mov.l",{A_DISP_GBR,A_R0},{HEX_C,HEX_6,IMM0_8BY4}, arch_sh_up}
++	mov.l @(end-.,PC),r4      ;!/* 1101nnnni8p4.... mov.l @(<adisp>,PC),<REG_N>*/{"mov.l",{A_DISP_PC,A_REG_N},{HEX_D,REG_N,PCRELIMM_8BY4}, arch_sh_up}
++	mov.l @(R0,r5),r4         ;!/* 0000nnnnmmmm1110 mov.l @(R0,<REG_M>),<REG_N>*/{"mov.l",{A_IND_R0_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_E}, arch_sh_up}
++	mov.l @r5+,r4             ;!/* 0110nnnnmmmm0110 mov.l @<REG_M>+,<REG_N>*/{"mov.l",{A_INC_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_6}, arch_sh_up}
++	mov.l @r5,r4              ;!/* 0110nnnnmmmm0010 mov.l @<REG_M>,<REG_N>*/{"mov.l",{A_IND_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_2}, arch_sh_up}
++	mov.l R0,@(8,GBR)         ;!/* 11000010i8*4.... mov.l R0,@(<disp>,GBR)*/{"mov.l",{A_R0,A_DISP_GBR},{HEX_C,HEX_2,IMM1_8BY4}, arch_sh_up}
++	mov.w r5,@(R0,r4)         ;!/* 0000nnnnmmmm0101 mov.w <REG_M>,@(R0,<REG_N>)*/{"mov.w",{ A_REG_M,A_IND_R0_REG_N},{HEX_0,REG_N,REG_M,HEX_5}, arch_sh_up}
++	mov.w r5,@-r4             ;!/* 0010nnnnmmmm0101 mov.w <REG_M>,@-<REG_N>*/{"mov.w",{ A_REG_M,A_DEC_N},{HEX_2,REG_N,REG_M,HEX_5}, arch_sh_up}
++	mov.w r5,@r4              ;!/* 0010nnnnmmmm0001 mov.w <REG_M>,@<REG_N>*/{"mov.w",{ A_REG_M,A_IND_N},{HEX_2,REG_N,REG_M,HEX_1}, arch_sh_up}
++	mov.w @(8,r5),R0          ;!/* 10000101mmmmi4*2 mov.w @(<disp>,<REG_M>),R0*/{"mov.w",{A_DISP_REG_M,A_R0},{HEX_8,HEX_5,REG_M,IMM0_4BY2}, arch_sh_up}
++	mov.w @(8,GBR),R0         ;!/* 11000101i8*2.... mov.w @(<disp>,GBR),R0*/{"mov.w",{A_DISP_GBR,A_R0},{HEX_C,HEX_5,IMM0_8BY2}, arch_sh_up}
++	mov.w @(8,PC),r4          ;!/* 1001nnnni8p2.... mov.w @(<disp>,PC),<REG_N>*/{"mov.w",{A_DISP_PC,A_REG_N},{HEX_9,REG_N,PCRELIMM_8BY2}, arch_sh_up}
++	mov.w @(R0,r5),r4         ;!/* 0000nnnnmmmm1101 mov.w @(R0,<REG_M>),<REG_N>*/{"mov.w",{A_IND_R0_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_D}, arch_sh_up}
++	mov.w @r5+,r4             ;!/* 0110nnnnmmmm0101 mov.w @<REG_M>+,<REG_N>*/{"mov.w",{A_INC_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_5}, arch_sh_up}
++	mov.w @r5,r4              ;!/* 0110nnnnmmmm0001 mov.w @<REG_M>,<REG_N>*/{"mov.w",{A_IND_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_1}, arch_sh_up}
++	mov.w R0,@(8,r5)          ;!/* 10000001mmmmi4*2 mov.w R0,@(<disp>,<REG_M>)*/{"mov.w",{A_R0,A_DISP_REG_M},{HEX_8,HEX_1,REG_M,IMM1_4BY2}, arch_sh_up}
++	mov.w R0,@(8,GBR)         ;!/* 11000001i8*2.... mov.w R0,@(<disp>,GBR)*/{"mov.w",{A_R0,A_DISP_GBR},{HEX_C,HEX_1,IMM1_8BY2}, arch_sh_up}
++	mova @(end-.,PC),R0       ;!/* 11000111i8p4.... mova @(<adisp>,PC),R0*/{"mova",{A_DISP_PC,A_R0},{HEX_C,HEX_7,PCRELIMM_8BY4}, arch_sh_up}
++	movca.l R0,@r4            ;!/* 0000nnnn11000011 movca.l R0,@<REG_N> */{"movca.l",{A_R0,A_IND_N},{HEX_0,REG_N,HEX_C,HEX_3}, arch_sh4_nommu_nofpu_up}
++	movt r4                   ;!/* 0000nnnn00101001 movt <REG_N>        */{"movt",{A_REG_N},{HEX_0,REG_N,HEX_2,HEX_9}, arch_sh_up}
++	muls.w r5,r4              ;!/* 0010nnnnmmmm1111 muls.w <REG_M>,<REG_N>*/{"muls.w",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_F}, arch_sh_up}
++	muls r5,r4                ;!/* 0010nnnnmmmm1111 muls <REG_M>,<REG_N>*/{"muls",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_F}, arch_sh_up}
++	mul.l r5,r4               ;!/* 0000nnnnmmmm0111 mul.l <REG_M>,<REG_N>*/{"mul.l",{ A_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_7}, arch_sh2_up}
++	mulu.w r5,r4              ;!/* 0010nnnnmmmm1110 mulu.w <REG_M>,<REG_N>*/{"mulu.w",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_E}, arch_sh_up}
++	mulu r5,r4                ;!/* 0010nnnnmmmm1110 mulu <REG_M>,<REG_N>*/{"mulu",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_E}, arch_sh_up}
++	neg r5,r4                 ;!/* 0110nnnnmmmm1011 neg <REG_M>,<REG_N> */{"neg",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_B}, arch_sh_up}
++	negc r5,r4                ;!/* 0110nnnnmmmm1010 negc <REG_M>,<REG_N>*/{"negc",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_A}, arch_sh_up}
++	nop                       ;!/* 0000000000001001 nop                 */{"nop",{0},{HEX_0,HEX_0,HEX_0,HEX_9}, arch_sh_up}
++	not r5,r4                 ;!/* 0110nnnnmmmm0111 not <REG_M>,<REG_N> */{"not",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_7}, arch_sh_up}
++	ocbi @r4                  ;!/* 0000nnnn10010011 ocbi @<REG_N>       */{"ocbi",{A_IND_N},{HEX_0,REG_N,HEX_9,HEX_3}, arch_sh4_nommu_nofpu_up}
++	ocbp @r4                  ;!/* 0000nnnn10100011 ocbp @<REG_N>       */{"ocbp",{A_IND_N},{HEX_0,REG_N,HEX_A,HEX_3}, arch_sh4_nommu_nofpu_up}
++	ocbwb @r4                 ;!/* 0000nnnn10110011 ocbwb @<REG_N>      */{"ocbwb",{A_IND_N},{HEX_0,REG_N,HEX_B,HEX_3}, arch_sh4_nommu_nofpu_up}
++	or #4,R0                  ;!/* 11001011i8*1.... or #<imm>,R0        */{"or",{A_IMM,A_R0},{HEX_C,HEX_B,IMM0_8}, arch_sh_up}
++	or r5,r4                  ;!/* 0010nnnnmmmm1011 or <REG_M>,<REG_N>  */{"or",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_B}, arch_sh_up}
++	or.b #4,@(R0,GBR)         ;!/* 11001111i8*1.... or.b #<imm>,@(R0,GBR)*/{"or.b",{A_IMM,A_R0_GBR},{HEX_C,HEX_F,IMM0_8}, arch_sh_up}
++	pref @r4                  ;!/* 0000nnnn10000011 pref @<REG_N>       */{"pref",{A_IND_N},{HEX_0,REG_N,HEX_8,HEX_3}, arch_sh2a_nofpu_or_sh4_nommu_nofpu_up}
++	rotcl r4                  ;!/* 0100nnnn00100100 rotcl <REG_N>       */{"rotcl",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_4}, arch_sh_up}
++	rotcr r4                  ;!/* 0100nnnn00100101 rotcr <REG_N>       */{"rotcr",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_5}, arch_sh_up}
++	rotl r4                   ;!/* 0100nnnn00000100 rotl <REG_N>        */{"rotl",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_4}, arch_sh_up}
++	rotr r4                   ;!/* 0100nnnn00000101 rotr <REG_N>        */{"rotr",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_5}, arch_sh_up}
++	rte                       ;!/* 0000000000101011 rte                 */{"rte",{0},{HEX_0,HEX_0,HEX_2,HEX_B}, arch_sh_up}
++	rts                       ;!/* 0000000000001011 rts                 */{"rts",{0},{HEX_0,HEX_0,HEX_0,HEX_B}, arch_sh_up}
++	sets                      ;!/* 0000000001011000 sets                */{"sets",{0},{HEX_0,HEX_0,HEX_5,HEX_8}, arch_sh_up}
++	sett                      ;!/* 0000000000011000 sett                */{"sett",{0},{HEX_0,HEX_0,HEX_1,HEX_8}, arch_sh_up}
++	shad r5,r4                ;!/* 0100nnnnmmmm1100 shad <REG_M>,<REG_N>*/{"shad",{ A_REG_M,A_REG_N},{HEX_4,REG_N,REG_M,HEX_C}, arch_sh2a_nofpu_or_sh3_nommu_up}
++	shld r5,r4                ;!/* 0100nnnnmmmm1101 shld <REG_M>,<REG_N>*/{"shld",{ A_REG_M,A_REG_N},{HEX_4,REG_N,REG_M,HEX_D}, arch_sh2a_nofpu_or_sh3_nommu_up}
++	shal r4                   ;!/* 0100nnnn00100000 shal <REG_N>        */{"shal",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_0}, arch_sh_up}
++	shar r4                   ;!/* 0100nnnn00100001 shar <REG_N>        */{"shar",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_1}, arch_sh_up}
++	shll r4                   ;!/* 0100nnnn00000000 shll <REG_N>        */{"shll",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_0}, arch_sh_up}
++	shll16 r4                 ;!/* 0100nnnn00101000 shll16 <REG_N>      */{"shll16",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_8}, arch_sh_up}
++	shll2 r4                  ;!/* 0100nnnn00001000 shll2 <REG_N>       */{"shll2",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_8}, arch_sh_up}
++	shll8 r4                  ;!/* 0100nnnn00011000 shll8 <REG_N>       */{"shll8",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_8}, arch_sh_up}
++	shlr r4                   ;!/* 0100nnnn00000001 shlr <REG_N>        */{"shlr",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_1}, arch_sh_up}
++	shlr16 r4                 ;!/* 0100nnnn00101001 shlr16 <REG_N>      */{"shlr16",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_9}, arch_sh_up}
++	shlr2 r4                  ;!/* 0100nnnn00001001 shlr2 <REG_N>       */{"shlr2",{A_REG_N},{HEX_4,REG_N,HEX_0,HEX_9}, arch_sh_up}
++	shlr8 r4                  ;!/* 0100nnnn00011001 shlr8 <REG_N>       */{"shlr8",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_9}, arch_sh_up}
++	sleep                     ;!/* 0000000000011011 sleep               */{"sleep",{0},{HEX_0,HEX_0,HEX_1,HEX_B}, arch_sh_up}
++	stc SR,r4                 ;!/* 0000nnnn00000010 stc SR,<REG_N>      */{"stc",{A_SR,A_REG_N},{HEX_0,REG_N,HEX_0,HEX_2}, arch_sh_up}
++	stc GBR,r4                ;!/* 0000nnnn00010010 stc GBR,<REG_N>     */{"stc",{A_GBR,A_REG_N},{HEX_0,REG_N,HEX_1,HEX_2}, arch_sh_up}
++	stc VBR,r4                ;!/* 0000nnnn00100010 stc VBR,<REG_N>     */{"stc",{A_VBR,A_REG_N},{HEX_0,REG_N,HEX_2,HEX_2}, arch_sh_up}
++	stc SSR,r4                ;!/* 0000nnnn00110010 stc SSR,<REG_N>     */{"stc",{A_SSR,A_REG_N},{HEX_0,REG_N,HEX_3,HEX_2}, arch_sh3_nommu_up}
++	stc SPC,r4                ;!/* 0000nnnn01000010 stc SPC,<REG_N>     */{"stc",{A_SPC,A_REG_N},{HEX_0,REG_N,HEX_4,HEX_2}, arch_sh3_nommu_up}
++	stc SGR,r4                ;!/* 0000nnnn00111010 stc SGR,<REG_N>     */{"stc",{A_SGR,A_REG_N},{HEX_0,REG_N,HEX_3,HEX_A}, arch_sh4_nommu_nofpu_up}
++	stc DBR,r4                ;!/* 0000nnnn11111010 stc DBR,<REG_N>     */{"stc",{A_DBR,A_REG_N},{HEX_0,REG_N,HEX_F,HEX_A}, arch_sh4_nommu_nofpu_up}
++	stc r1_bank,r4            ;!/* 0000nnnn1xxx0010 stc Rn_BANK,<REG_N> */{"stc",{A_REG_B,A_REG_N},{HEX_0,REG_N,REG_B,HEX_2}, arch_sh3_nommu_up}
++	stc.l SR,@-r4             ;!/* 0100nnnn00000011 stc.l SR,@-<REG_N>  */{"stc.l",{A_SR,A_DEC_N},{HEX_4,REG_N,HEX_0,HEX_3}, arch_sh_up}
++	stc.l VBR,@-r4            ;!/* 0100nnnn00100011 stc.l VBR,@-<REG_N> */{"stc.l",{A_VBR,A_DEC_N},{HEX_4,REG_N,HEX_2,HEX_3}, arch_sh_up}
++	stc.l SSR,@-r4            ;!/* 0100nnnn00110011 stc.l SSR,@-<REG_N> */{"stc.l",{A_SSR,A_DEC_N},{HEX_4,REG_N,HEX_3,HEX_3}, arch_sh3_nommu_up}
++	stc.l SPC,@-r4            ;!/* 0100nnnn01000011 stc.l SPC,@-<REG_N> */{"stc.l",{A_SPC,A_DEC_N},{HEX_4,REG_N,HEX_4,HEX_3}, arch_sh3_nommu_up}
++	stc.l GBR,@-r4            ;!/* 0100nnnn00010011 stc.l GBR,@-<REG_N> */{"stc.l",{A_GBR,A_DEC_N},{HEX_4,REG_N,HEX_1,HEX_3}, arch_sh_up}
++	stc.l SGR,@-r4            ;!/* 0100nnnn00110010 stc.l SGR,@-<REG_N> */{"stc.l",{A_SGR,A_DEC_N},{HEX_4,REG_N,HEX_3,HEX_2}, arch_sh4_nommu_nofpu_up}
++	stc.l DBR,@-r4            ;!/* 0100nnnn11110010 stc.l DBR,@-<REG_N> */{"stc.l",{A_DBR,A_DEC_N},{HEX_4,REG_N,HEX_F,HEX_2}, arch_sh4_nommu_nofpu_up}
++	stc.l r1_bank,@-r4        ;!/* 0100nnnn1xxx0011 stc.l Rn_BANK,@-<REG_N> */{"stc.l",{A_REG_B,A_DEC_N},{HEX_4,REG_N,REG_B,HEX_3}, arch_sh3_nommu_up}
++	sts MACH,r4               ;!/* 0000nnnn00001010 sts MACH,<REG_N>    */{"sts",{A_MACH,A_REG_N},{HEX_0,REG_N,HEX_0,HEX_A}, arch_sh_up}
++	sts MACL,r4               ;!/* 0000nnnn00011010 sts MACL,<REG_N>    */{"sts",{A_MACL,A_REG_N},{HEX_0,REG_N,HEX_1,HEX_A}, arch_sh_up}
++	sts PR,r4                 ;!/* 0000nnnn00101010 sts PR,<REG_N>      */{"sts",{A_PR,A_REG_N},{HEX_0,REG_N,HEX_2,HEX_A}, arch_sh_up}
++	sts FPUL,r4               ;!/* 0000nnnn01011010 sts FPUL,<REG_N>    */{"sts",{FPUL_M,A_REG_N},{HEX_0,REG_N,HEX_5,HEX_A}, arch_sh2e_up}
++	sts FPSCR,r4              ;!/* 0000nnnn01101010 sts FPSCR,<REG_N>   */{"sts",{FPSCR_M,A_REG_N},{HEX_0,REG_N,HEX_6,HEX_A}, arch_sh2e_up}
++	sts.l MACH,@-r4           ;!/* 0100nnnn00000010 sts.l MACH,@-<REG_N>*/{"sts.l",{A_MACH,A_DEC_N},{HEX_4,REG_N,HEX_0,HEX_2}, arch_sh_up}
++	sts.l MACL,@-r4           ;!/* 0100nnnn00010010 sts.l MACL,@-<REG_N>*/{"sts.l",{A_MACL,A_DEC_N},{HEX_4,REG_N,HEX_1,HEX_2}, arch_sh_up}
++	sts.l PR,@-r4             ;!/* 0100nnnn00100010 sts.l PR,@-<REG_N>  */{"sts.l",{A_PR,A_DEC_N},{HEX_4,REG_N,HEX_2,HEX_2}, arch_sh_up}
++	sts.l FPUL,@-r4           ;!/* 0100nnnn01010010 sts.l FPUL,@-<REG_N>*/{"sts.l",{FPUL_M,A_DEC_N},{HEX_4,REG_N,HEX_5,HEX_2}, arch_sh2e_up}
++	sts.l FPSCR,@-r4          ;!/* 0100nnnn01100010 sts.l FPSCR,@-<REG_N>*/{"sts.l",{FPSCR_M,A_DEC_N},{HEX_4,REG_N,HEX_6,HEX_2}, arch_sh2e_up}
++	sub r5,r4                 ;!/* 0011nnnnmmmm1000 sub <REG_M>,<REG_N> */{"sub",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_8}, arch_sh_up}
++	subc r5,r4                ;!/* 0011nnnnmmmm1010 subc <REG_M>,<REG_N>*/{"subc",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_A}, arch_sh_up}
++	subv r5,r4                ;!/* 0011nnnnmmmm1011 subv <REG_M>,<REG_N>*/{"subv",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_B}, arch_sh_up}
++	swap.b r5,r4              ;!/* 0110nnnnmmmm1000 swap.b <REG_M>,<REG_N>*/{"swap.b",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_8}, arch_sh_up}
++	swap.w r5,r4              ;!/* 0110nnnnmmmm1001 swap.w <REG_M>,<REG_N>*/{"swap.w",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_9}, arch_sh_up}
++	synco                     ;!/* 0000000010101011 synco               */{"synco",{0},{HEX_0,HEX_0,HEX_A,HEX_B}, arch_st40_300_nofpu_or_sh4a_nofpu_up}
++	tas.b @r4                 ;!/* 0100nnnn00011011 tas.b @<REG_N>      */{"tas.b",{A_IND_N},{HEX_4,REG_N,HEX_1,HEX_B}, arch_sh_up}
++	trapa #4                  ;!/* 11000011i8*1.... trapa #<imm>        */{"trapa",{A_IMM},{HEX_C,HEX_3,IMM0_8}, arch_sh_up}
++	tst #4,R0                 ;!/* 11001000i8*1.... tst #<imm>,R0       */{"tst",{A_IMM,A_R0},{HEX_C,HEX_8,IMM0_8}, arch_sh_up}
++	tst r5,r4                 ;!/* 0010nnnnmmmm1000 tst <REG_M>,<REG_N> */{"tst",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_8}, arch_sh_up}
++	tst.b #4,@(R0,GBR)        ;!/* 11001100i8*1.... tst.b #<imm>,@(R0,GBR)*/{"tst.b",{A_IMM,A_R0_GBR},{HEX_C,HEX_C,IMM0_8}, arch_sh_up}
++	xor #4,R0                 ;!/* 11001010i8*1.... xor #<imm>,R0       */{"xor",{A_IMM,A_R0},{HEX_C,HEX_A,IMM0_8}, arch_sh_up}
++	xor r5,r4                 ;!/* 0010nnnnmmmm1010 xor <REG_M>,<REG_N> */{"xor",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_A}, arch_sh_up}
++	xor.b #4,@(R0,GBR)        ;!/* 11001110i8*1.... xor.b #<imm>,@(R0,GBR)*/{"xor.b",{A_IMM,A_R0_GBR},{HEX_C,HEX_E,IMM0_8}, arch_sh_up}
++	xtrct r5,r4               ;!/* 0010nnnnmmmm1101 xtrct <REG_M>,<REG_N>*/{"xtrct",{ A_REG_M,A_REG_N},{HEX_2,REG_N,REG_M,HEX_D}, arch_sh_up}
++	dt r4                     ;!/* 0100nnnn00010000 dt <REG_N>          */{"dt",{A_REG_N},{HEX_4,REG_N,HEX_1,HEX_0}, arch_sh2_up}
++	dmuls.l r5,r4             ;!/* 0011nnnnmmmm1101 dmuls.l <REG_M>,<REG_N>*/{"dmuls.l",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_D}, arch_sh2_up}
++	dmulu.l r5,r4             ;!/* 0011nnnnmmmm0101 dmulu.l <REG_M>,<REG_N>*/{"dmulu.l",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_5}, arch_sh2_up}
++	mac.l @r5+,@r4+           ;!/* 0000nnnnmmmm1111 mac.l @<REG_M>+,@<REG_N>+*/{"mac.l",{A_INC_M,A_INC_N},{HEX_0,REG_N,REG_M,HEX_F}, arch_sh2_up}
++	braf r4                   ;!/* 0000nnnn00100011 braf <REG_N>       */{"braf",{A_REG_N},{HEX_0,REG_N,HEX_2,HEX_3}, arch_sh2_up}
++	bsrf r4                   ;!/* 0000nnnn00000011 bsrf <REG_N>       */{"bsrf",{A_REG_N},{HEX_0,REG_N,HEX_0,HEX_3}, arch_sh2_up}
++	fabs fr1                  ;!/* 1111nnnn01011101 fabs <F_REG_N>     */{"fabs",{F_REG_N},{HEX_F,REG_N,HEX_5,HEX_D}, arch_sh2e_up}
++	fabs dr2                  ;!/* 1111nnn001011101 fabs <D_REG_N>     */{"fabs",{D_REG_N},{HEX_F,REG_N,HEX_5,HEX_D}, arch_sh2a_or_sh4_up}
++	fadd fr2,fr1              ;!/* 1111nnnnmmmm0000 fadd <F_REG_M>,<F_REG_N>*/{"fadd",{F_REG_M,F_REG_N},{HEX_F,REG_N,REG_M,HEX_0}, arch_sh2e_up}
++	fadd dr4,dr2              ;!/* 1111nnn0mmm00000 fadd <D_REG_M>,<D_REG_N>*/{"fadd",{D_REG_M,D_REG_N},{HEX_F,REG_N,REG_M,HEX_0}, arch_sh2a_or_sh4_up}
++	fcmp/eq fr2,fr1           ;!/* 1111nnnnmmmm0100 fcmp/eq <F_REG_M>,<F_REG_N>*/{"fcmp/eq",{F_REG_M,F_REG_N},{HEX_F,REG_N,REG_M,HEX_4}, arch_sh2e_up}
++	fcmp/eq dr4,dr2           ;!/* 1111nnn0mmm00100 fcmp/eq <D_REG_M>,<D_REG_N>*/{"fcmp/eq",{D_REG_M,D_REG_N},{HEX_F,REG_N,REG_M,HEX_4}, arch_sh2a_or_sh4_up}
++	fcmp/gt fr2,fr1           ;!/* 1111nnnnmmmm0101 fcmp/gt <F_REG_M>,<F_REG_N>*/{"fcmp/gt",{F_REG_M,F_REG_N},{HEX_F,REG_N,REG_M,HEX_5}, arch_sh2e_up}
++	fcmp/gt dr4,dr2           ;!/* 1111nnn0mmm00101 fcmp/gt <D_REG_M>,<D_REG_N>*/{"fcmp/gt",{D_REG_M,D_REG_N},{HEX_F,REG_N,REG_M,HEX_5}, arch_sh2a_or_sh4_up}
++	fcnvds dr2,FPUL           ;!/* 1111nnn010111101 fcnvds <D_REG_N>,FPUL*/{"fcnvds",{D_REG_N,FPUL_M},{HEX_F,REG_N_D,HEX_B,HEX_D}, arch_sh2a_or_sh4_up}
++	fcnvsd FPUL,dr2           ;!/* 1111nnn010101101 fcnvsd FPUL,<D_REG_N>*/{"fcnvsd",{FPUL_M,D_REG_N},{HEX_F,REG_N_D,HEX_A,HEX_D}, arch_sh2a_or_sh4_up}
++	fdiv fr2,fr1              ;!/* 1111nnnnmmmm0011 fdiv <F_REG_M>,<F_REG_N>*/{"fdiv",{F_REG_M,F_REG_N},{HEX_F,REG_N,REG_M,HEX_3}, arch_sh2e_up}
++	fdiv dr4,dr2              ;!/* 1111nnn0mmm00011 fdiv <D_REG_M>,<D_REG_N>*/{"fdiv",{D_REG_M,D_REG_N},{HEX_F,REG_N,REG_M,HEX_3}, arch_sh2a_or_sh4_up}
++	fipr fv4,fv0              ;!/* 1111nnmm11101101 fipr <V_REG_M>,<V_REG_N>*/{"fipr",{V_REG_M,V_REG_N},{HEX_F,REG_NM,HEX_E,HEX_D}, arch_sh4_up}
++	fldi0 fr1                 ;!/* 1111nnnn10001101 fldi0 <F_REG_N>    */{"fldi0",{F_REG_N},{HEX_F,REG_N,HEX_8,HEX_D}, arch_sh2e_up}
++	fldi1 fr1                 ;!/* 1111nnnn10011101 fldi1 <F_REG_N>    */{"fldi1",{F_REG_N},{HEX_F,REG_N,HEX_9,HEX_D}, arch_sh2e_up}
++	flds fr1,FPUL             ;!/* 1111nnnn00011101 flds <F_REG_N>,FPUL*/{"flds",{F_REG_N,FPUL_M},{HEX_F,REG_N,HEX_1,HEX_D}, arch_sh2e_up}
++	float FPUL,fr1            ;!/* 1111nnnn00101101 float FPUL,<F_REG_N>*/{"float",{FPUL_M,F_REG_N},{HEX_F,REG_N,HEX_2,HEX_D}, arch_sh2e_up}
++	float FPUL,dr2            ;!/* 1111nnn000101101 float FPUL,<D_REG_N>*/{"float",{FPUL_M,D_REG_N},{HEX_F,REG_N,HEX_2,HEX_D}, arch_sh2a_or_sh4_up}
++	fmac FR0,fr2,fr1          ;!/* 1111nnnnmmmm1110 fmac FR0,<F_REG_M>,<F_REG_N>*/{"fmac",{F_FR0,F_REG_M,F_REG_N},{HEX_F,REG_N,REG_M,HEX_E}, arch_sh2e_up}
++	fmov fr2,fr1              ;!/* 1111nnnnmmmm1100 fmov <F_REG_M>,<F_REG_N>*/{"fmov",{F_REG_M,F_REG_N},{HEX_F,REG_N,REG_M,HEX_C}, arch_sh2e_up}
++	fmov xd4,xd2              ;!/* 1111nnn1mmmm1100 fmov <DX_REG_M>,<DX_REG_N>*/{"fmov",{DX_REG_M,DX_REG_N},{HEX_F,REG_N,REG_M,HEX_C}, arch_sh2a_or_sh4_up}
++	fmov @r5,fr1              ;!/* 1111nnnnmmmm1000 fmov @<REG_M>,<F_REG_N>*/{"fmov",{A_IND_M,F_REG_N},{HEX_F,REG_N,REG_M,HEX_8}, arch_sh2e_up}
++	fmov @r5,xd2              ;!/* 1111nnn1mmmm1000 fmov @<REG_M>,<DX_REG_N>*/{"fmov",{A_IND_M,DX_REG_N},{HEX_F,REG_N,REG_M,HEX_8}, arch_sh2a_or_sh4_up}
++	fmov fr2,@r4              ;!/* 1111nnnnmmmm1010 fmov <F_REG_M>,@<REG_N>*/{"fmov",{F_REG_M,A_IND_N},{HEX_F,REG_N,REG_M,HEX_A}, arch_sh2e_up}
++	fmov xd4,@r4              ;!/* 1111nnnnmmm11010 fmov <DX_REG_M>,@<REG_N>*/{"fmov",{DX_REG_M,A_IND_N},{HEX_F,REG_N,REG_M,HEX_A}, arch_sh2a_or_sh4_up}
++	fmov @r5+,fr1             ;!/* 1111nnnnmmmm1001 fmov @<REG_M>+,<F_REG_N>*/{"fmov",{A_INC_M,F_REG_N},{HEX_F,REG_N,REG_M,HEX_9}, arch_sh2e_up}
++	fmov @r5+,xd2             ;!/* 1111nnn1mmmm1001 fmov @<REG_M>+,<DX_REG_N>*/{"fmov",{A_INC_M,DX_REG_N},{HEX_F,REG_N,REG_M,HEX_9}, arch_sh2a_or_sh4_up}
++	fmov fr2,@-r4             ;!/* 1111nnnnmmmm1011 fmov <F_REG_M>,@-<REG_N>*/{"fmov",{F_REG_M,A_DEC_N},{HEX_F,REG_N,REG_M,HEX_B}, arch_sh2e_up}
++	fmov xd4,@-r4             ;!/* 1111nnnnmmm11011 fmov <DX_REG_M>,@-<REG_N>*/{"fmov",{DX_REG_M,A_DEC_N},{HEX_F,REG_N,REG_M,HEX_B}, arch_sh2a_or_sh4_up}
++	fmov @(R0,r5),fr1         ;!/* 1111nnnnmmmm0110 fmov @(R0,<REG_M>),<F_REG_N>*/{"fmov",{A_IND_R0_REG_M,F_REG_N},{HEX_F,REG_N,REG_M,HEX_6}, arch_sh2e_up}
++	fmov @(R0,r5),xd2         ;!/* 1111nnn1mmmm0110 fmov @(R0,<REG_M>),<DX_REG_N>*/{"fmov",{A_IND_R0_REG_M,DX_REG_N},{HEX_F,REG_N,REG_M,HEX_6}, arch_sh2a_or_sh4_up}
++	fmov fr2,@(R0,r4)         ;!/* 1111nnnnmmmm0111 fmov <F_REG_M>,@(R0,<REG_N>)*/{"fmov",{F_REG_M,A_IND_R0_REG_N},{HEX_F,REG_N,REG_M,HEX_7}, arch_sh2e_up}
++	fmov xd4,@(R0,r4)         ;!/* 1111nnnnmmm10111 fmov <DX_REG_M>,@(R0,<REG_N>)*/{"fmov",{DX_REG_M,A_IND_R0_REG_N},{HEX_F,REG_N,REG_M,HEX_7}, arch_sh2a_or_sh4_up}
++	fmov.d @r5,xd2            ;!/* 1111nnn1mmmm1000 fmov.d @<REG_M>,<DX_REG_N>*/{"fmov.d",{A_IND_M,DX_REG_N},{HEX_F,REG_N,REG_M,HEX_8}, arch_sh2a_or_sh4_up}
++	fmov.d xd4,@r4            ;!/* 1111nnnnmmm11010 fmov.d <DX_REG_M>,@<REG_N>*/{"fmov.d",{DX_REG_M,A_IND_N},{HEX_F,REG_N,REG_M,HEX_A}, arch_sh2a_or_sh4_up}
++	fmov.d @r5+,xd2           ;!/* 1111nnn1mmmm1001 fmov.d @<REG_M>+,<DX_REG_N>*/{"fmov.d",{A_INC_M,DX_REG_N},{HEX_F,REG_N,REG_M,HEX_9}, arch_sh2a_or_sh4_up}
++	fmov.d xd4,@-r4           ;!/* 1111nnnnmmm11011 fmov.d <DX_REG_M>,@-<REG_N>*/{"fmov.d",{DX_REG_M,A_DEC_N},{HEX_F,REG_N,REG_M,HEX_B}, arch_sh2a_or_sh4_up}
++	fmov.d @(R0,r5),xd2       ;!/* 1111nnn1mmmm0110 fmov.d @(R0,<REG_M>),<DX_REG_N>*/{"fmov.d",{A_IND_R0_REG_M,DX_REG_N},{HEX_F,REG_N,REG_M,HEX_6}, arch_sh2a_or_sh4_up}
++	fmov.d xd4,@(R0,r4)       ;!/* 1111nnnnmmm10111 fmov.d <DX_REG_M>,@(R0,<REG_N>)*/{"fmov.d",{DX_REG_M,A_IND_R0_REG_N},{HEX_F,REG_N,REG_M,HEX_7}, arch_sh2a_or_sh4_up}
++	fmov.s @r5,fr1            ;!/* 1111nnnnmmmm1000 fmov.s @<REG_M>,<F_REG_N>*/{"fmov.s",{A_IND_M,F_REG_N},{HEX_F,REG_N,REG_M,HEX_8}, arch_sh2e_up}
++	fmov.s fr2,@r4            ;!/* 1111nnnnmmmm1010 fmov.s <F_REG_M>,@<REG_N>*/{"fmov.s",{F_REG_M,A_IND_N},{HEX_F,REG_N,REG_M,HEX_A}, arch_sh2e_up}
++	fmov.s @r5+,fr1           ;!/* 1111nnnnmmmm1001 fmov.s @<REG_M>+,<F_REG_N>*/{"fmov.s",{A_INC_M,F_REG_N},{HEX_F,REG_N,REG_M,HEX_9}, arch_sh2e_up}
++	fmov.s fr2,@-r4           ;!/* 1111nnnnmmmm1011 fmov.s <F_REG_M>,@-<REG_N>*/{"fmov.s",{F_REG_M,A_DEC_N},{HEX_F,REG_N,REG_M,HEX_B}, arch_sh2e_up}
++	fmov.s @(R0,r5),fr1       ;!/* 1111nnnnmmmm0110 fmov.s @(R0,<REG_M>),<F_REG_N>*/{"fmov.s",{A_IND_R0_REG_M,F_REG_N},{HEX_F,REG_N,REG_M,HEX_6}, arch_sh2e_up}
++	fmov.s fr2,@(R0,r4)       ;!/* 1111nnnnmmmm0111 fmov.s <F_REG_M>,@(R0,<REG_N>)*/{"fmov.s",{F_REG_M,A_IND_R0_REG_N},{HEX_F,REG_N,REG_M,HEX_7}, arch_sh2e_up}
++	fmul fr2,fr1              ;!/* 1111nnnnmmmm0010 fmul <F_REG_M>,<F_REG_N>*/{"fmul",{F_REG_M,F_REG_N},{HEX_F,REG_N,REG_M,HEX_2}, arch_sh2e_up}
++	fmul dr4,dr2              ;!/* 1111nnn0mmm00010 fmul <D_REG_M>,<D_REG_N>*/{"fmul",{D_REG_M,D_REG_N},{HEX_F,REG_N,REG_M,HEX_2}, arch_sh2a_or_sh4_up}
++	fneg fr1                  ;!/* 1111nnnn01001101 fneg <F_REG_N>     */{"fneg",{F_REG_N},{HEX_F,REG_N,HEX_4,HEX_D}, arch_sh2e_up}
++	fneg dr2                  ;!/* 1111nnn001001101 fneg <D_REG_N>     */{"fneg",{D_REG_N},{HEX_F,REG_N,HEX_4,HEX_D}, arch_sh2a_or_sh4_up}
++	frchg                     ;!/* 1111101111111101 frchg               */{"frchg",{0},{HEX_F,HEX_B,HEX_F,HEX_D}, arch_sh4_up}
++	fsca FPUL,dr2             ;!/* 1111nnn011111101 fsca FPUL,<D_REG_N> */{"fsca",{FPUL_M,D_REG_N},{HEX_F,REG_N_D,HEX_F,HEX_D}, arch_sh4_up}
++	fschg                     ;!/* 1111001111111101 fschg               */{"fschg",{0},{HEX_F,HEX_3,HEX_F,HEX_D}, arch_sh2a_or_sh4_up}
++	fsqrt fr1                 ;!/* 1111nnnn01101101 fsqrt <F_REG_N>    */{"fsqrt",{F_REG_N},{HEX_F,REG_N,HEX_6,HEX_D}, arch_sh2a_or_sh3e_up}
++	fsqrt dr2                 ;!/* 1111nnn001101101 fsqrt <D_REG_N>    */{"fsqrt",{D_REG_N},{HEX_F,REG_N,HEX_6,HEX_D}, arch_sh2a_or_sh4_up}
++	fsrra fr1                 ;!/* 1111nnnn01111101 fsrra <F_REG_N>    */{"fsrra",{F_REG_N},{HEX_F,REG_N,HEX_7,HEX_D}, arch_sh4_up}
++	fsts FPUL,fr1             ;!/* 1111nnnn00001101 fsts FPUL,<F_REG_N>*/{"fsts",{FPUL_M,F_REG_N},{HEX_F,REG_N,HEX_0,HEX_D}, arch_sh2e_up}
++	fsub fr2,fr1              ;!/* 1111nnnnmmmm0001 fsub <F_REG_M>,<F_REG_N>*/{"fsub",{F_REG_M,F_REG_N},{HEX_F,REG_N,REG_M,HEX_1}, arch_sh2e_up}
++	fsub dr4,dr2              ;!/* 1111nnn0mmm00001 fsub <D_REG_M>,<D_REG_N>*/{"fsub",{D_REG_M,D_REG_N},{HEX_F,REG_N,REG_M,HEX_1}, arch_sh2a_or_sh4_up}
++	ftrc fr1,FPUL             ;!/* 1111nnnn00111101 ftrc <F_REG_N>,FPUL*/{"ftrc",{F_REG_N,FPUL_M},{HEX_F,REG_N,HEX_3,HEX_D}, arch_sh2e_up}
++	ftrc dr2,FPUL             ;!/* 1111nnnn00111101 ftrc <D_REG_N>,FPUL*/{"ftrc",{D_REG_N,FPUL_M},{HEX_F,REG_N,HEX_3,HEX_D}, arch_sh2a_or_sh4_up}
++	ftrv xmtrx,fv0            ;!/* 1111nn0111111101 ftrv XMTRX_M4,<V_REG_n>*/{"ftrv",{XMTRX_M4,V_REG_N},{HEX_F,REG_N_B01,HEX_F,HEX_D}, arch_sh4_up}
++	.align 2
++end:
+diff -Naur binutils-2.18.50.0.8/include/elf/ChangeLog.st40 binutils-2.18.50.0.8-stm/include/elf/ChangeLog.st40
+--- binutils-2.18.50.0.8/include/elf/ChangeLog.st40	1970-01-01 01:00:00.000000000 +0100
++++ binutils-2.18.50.0.8-stm/include/elf/ChangeLog.st40	2008-07-23 08:23:44.000000000 +0100
+@@ -0,0 +1,9 @@
++2006-03-01  Andrew Stubbs  <andrew.stubbs@st.com>
++
++	* sh.h (EF_SH_MACH_MASK): Extend mask to allow for ST40-300.
++	(EF_ST40_300_SH2A_NOFPU, EF_ST40_300_SH4A_NOFPU): Define.
++	(EF_ST40_300_NOFPU, EF_ST40_300_SH4Ai, EF_ST40_300): Likewise.
++	(EF_SH_BFD_TABLE): Add blank entries 25-49,
++	bfd_mach_st40_300_nofpu_or_sh2a_nofpu,
++	bfd_mach_st40_300_nofpu_or_sh4a_nofpu, bfd_mach_st40_300_nofpu,
++	bfd_mach_st40_300_or_sh4a and bfd_mach_st40_300.
+diff -Naur binutils-2.18.50.0.8/include/elf/sh.h binutils-2.18.50.0.8-stm/include/elf/sh.h
+--- binutils-2.18.50.0.8/include/elf/sh.h	2008-07-10 16:32:58.000000000 +0100
++++ binutils-2.18.50.0.8-stm/include/elf/sh.h	2008-07-23 08:25:25.000000000 +0100
+@@ -1,5 +1,6 @@
+ /* SH ELF support for BFD.
+    Copyright 1998, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
++   Copyright (c) 2006  STMicroelectronics.
+ 
+    This file is part of BFD, the Binary File Descriptor library.
+ 
+@@ -22,7 +23,7 @@
+ 
+ /* Processor specific flags for the ELF header e_flags field.  */
+ 
+-#define EF_SH_MACH_MASK	0x1f
++#define EF_SH_MACH_MASK	0x3f
+ #define EF_SH_UNKNOWN	   0 /* For backwards compatibility.  */
+ #define EF_SH1		   1
+ #define EF_SH2		   2
+@@ -47,6 +48,12 @@
+ #define EF_SH2A_SH4        23
+ #define EF_SH2A_SH3E       24
+ 
++#define EF_ST40_300_SH2A_NOFPU 50
++#define EF_ST40_300_SH4A_NOFPU 51
++#define EF_ST40_300_NOFPU      52
++#define EF_ST40_300_SH4A       53
++#define EF_ST40_300            54
++
+ /* This one can only mix in objects from other EF_SH5 objects.  */
+ #define EF_SH5		  10
+ 
+@@ -77,7 +84,15 @@
+ /* EF_SH2A_SH4_NOFPU    */ bfd_mach_sh2a_nofpu_or_sh4_nommu_nofpu, \
+ /* EF_SH2A_SH3_NOFPU    */ bfd_mach_sh2a_nofpu_or_sh3_nommu, \
+ /* EF_SH2A_SH4          */ bfd_mach_sh2a_or_sh4 , \
+-/* EF_SH2A_SH3E         */ bfd_mach_sh2a_or_sh3e
++/* EF_SH2A_SH3E         */ bfd_mach_sh2a_or_sh3e, \
++/* 25 - 29              */ 0, 0, 0, 0, 0, \
++/* 30 - 39              */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
++/* 40 - 49              */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
++/* EF_ST40_300_SH2A_NOFPU */ bfd_mach_st40_300_nofpu_or_sh2a_nofpu, \
++/* EF_ST40_300_SH4A_NOFPU */ bfd_mach_st40_300_nofpu_or_sh4a_nofpu, \
++/* EF_ST40_300_NOFPU    */ bfd_mach_st40_300_nofpu, \
++/* EF_ST40_300_SH4A     */ bfd_mach_st40_300_or_sh4a, \
++/* EF_ST40_300          */ bfd_mach_st40_300
+ 
+ /* Convert arch_sh* into EF_SH*.  */
+ int sh_find_elf_flags (unsigned int arch_set);
+diff -Naur binutils-2.18.50.0.8/opcodes/ChangeLog.st40 binutils-2.18.50.0.8-stm/opcodes/ChangeLog.st40
+--- binutils-2.18.50.0.8/opcodes/ChangeLog.st40	1970-01-01 01:00:00.000000000 +0100
++++ binutils-2.18.50.0.8-stm/opcodes/ChangeLog.st40	2008-07-23 12:08:45.000000000 +0100
+@@ -0,0 +1,36 @@
++2006-06-16  Andrew Stubbs  <andrew.stubbs@st.com>
++
++	* sh-opc.h (mov.l): disp -> adisp so the testsuite can read,
++	and therefore test, it correctly.
++	(mova): Likewise.
++
++2006-03-31  Andrew Stubbs  <andrew.stubbs@st.com>
++
++	* sh-dis.c (print_insn_sh): Handle A_R1, A_R2 and A_R3 arg types.
++
++2006-03-01  Andrew Stubbs  <andrew.stubbs@st.com>
++
++	* sh-opc.h (sh_arg_type): Add A_R1, A_R2 and A_R3.
++	(arch_st40_300_base, arch_st40_300_base): Define.
++	(arch_st40_300_sh2a_base): Likewise.
++	(arch_sh_base_mask): Extend the mask over the new defined bits.
++	(arch_st40_300, arch_st40_300_or_sh4a): Define.
++	(arch_st40_300_nofpu, arch_st40_300_nofpu_or_sh4a_nofpu): Likewise.
++	(arch_st40_300_nofpu_or_sh2a_nofpu): Likewise.
++	(diagram): Add ST40-300 architectures.
++	(arch_sh2a_nofpu_or_sh4_nommu_nofpu_up): Insert
++	arch_st40_300_nofpu_or_sh2a_nofpu_up. Remove arch_sh2a_nofpu_up.
++	(arch_st40_300_nofpu_or_sh2a_nofpu_up): Define.
++	(arch_sh4_nofpu_up): Add arch_st40_300_nofpu_or_sh4a_nofpu_up.
++	Remove arch_sh4a_nofpu_up.
++	(arch_st40_300_nofpu_or_sh4a_nofpu_up): Define.
++	(arch_st40_300_nofpu_up): Define.
++	(arch_sh4_up): Add arch_st40_300_or_sh4a_up.
++	Remove arch_sh4a_up.
++	(arch_st40_300_or_sh4a_up): Define.
++	(arch_st40_300_up): Define.
++	(icbi): Change to arch_st40_300_nofpu_or_sh4a_nofpu_up.
++	(synco): Change to arch_st40_300_nofpu_or_sh4a_nofpu_up.
++	(fpchg): Change to arch_st40_300_or_sh4a_up.
++	(mulr R0): Change to arch_st40_300_nofpu_or_sh2a_nofpu_up.
++	(mulr R1, mulr R2, mulr R3): Add.
+diff -Naur binutils-2.18.50.0.8/opcodes/sh-dis.c binutils-2.18.50.0.8-stm/opcodes/sh-dis.c
+--- binutils-2.18.50.0.8/opcodes/sh-dis.c	2007-08-01 14:11:55.000000000 +0100
++++ binutils-2.18.50.0.8-stm/opcodes/sh-dis.c	2008-07-23 12:10:27.000000000 +0100
+@@ -1,6 +1,7 @@
+ /* Disassemble SH instructions.
+    Copyright 1993, 1994, 1995, 1997, 1998, 2000, 2001, 2002, 2003, 2004, 2005,
+    2007  Free Software Foundation, Inc.
++   Copyright (c) 2006  STMicroelectronics.
+ 
+    This file is part of the GNU opcodes library.
+ 
+@@ -692,6 +693,15 @@
+ 	    case A_R0:
+ 	      fprintf_fn (stream, "r0");
+ 	      break;
++	    case A_R1:
++	      fprintf_fn (stream, "r1");
++	      break;
++	    case A_R2:
++	      fprintf_fn (stream, "r2");
++	      break;
++	    case A_R3:
++	      fprintf_fn (stream, "r3");
++	      break;
+ 	    case A_REG_N:
+ 	      fprintf_fn (stream, "r%d", rn);
+ 	      break;
+diff -Naur binutils-2.18.50.0.8/opcodes/sh-opc.h binutils-2.18.50.0.8-stm/opcodes/sh-opc.h
+--- binutils-2.18.50.0.8/opcodes/sh-opc.h	2007-08-01 14:11:55.000000000 +0100
++++ binutils-2.18.50.0.8-stm/opcodes/sh-opc.h	2008-07-23 12:30:53.000000000 +0100
+@@ -1,6 +1,7 @@
+ /* Definitions for SH opcodes.
+    Copyright 1993, 1994, 1995, 1997, 1999, 2000, 2001, 2002, 2003, 2004,
+    2005, 2007 Free Software Foundation, Inc.
++   Copyright (c) 2006  STMicroelectronics.
+ 
+    This file is part of the GNU opcodes library.
+ 
+@@ -121,6 +122,12 @@
+     A_MACL,
+     A_PR,
+     A_R0,
++ /* For use of the ST40-300 EXPERIMENTAL mulr instructions.
++    Not for submission to the netsources.  */
++    A_R1,
++    A_R2,
++    A_R3,
++ /* End of experimental.  */
+     A_R0_GBR,
+     A_REG_M,
+     A_REG_N,
+@@ -215,7 +222,10 @@
+ #define arch_sh4_base	    (1 << 5)
+ #define arch_sh4a_base	    (1 << 6)
+ #define arch_sh2a_base      (1 << 7)
+-#define arch_sh_base_mask   MASK (0, 7)
++#define arch_st40_300_base  (1 << 8)
++#define arch_sh4a_st40_300_base (1 << 9)
++#define arch_st40_300_sh2a_base (1 << 10)
++#define arch_sh_base_mask   MASK (0, 10)
+ 
+ /* Bits 8 ... 24 are currently free.  */
+ 
+@@ -255,6 +265,11 @@
+ #define arch_sh2a_nofpu_or_sh3_nommu       (arch_sh2a_sh3_base|arch_sh_no_mmu |arch_sh_no_co)
+ #define arch_sh2a_or_sh3e                  (arch_sh2a_sh4_base|arch_sh_no_mmu |arch_sh_sp_fpu)
+ #define arch_sh2a_or_sh4                   (arch_sh2a_sh4_base|arch_sh_no_mmu |arch_sh_dp_fpu)
++#define arch_st40_300                      (arch_st40_300_base|arch_sh_has_mmu|arch_sh_dp_fpu)
++#define arch_st40_300_or_sh4a              (arch_sh4a_st40_300_base|arch_sh_has_mmu|arch_sh_dp_fpu)
++#define arch_st40_300_nofpu                (arch_st40_300_base|arch_sh_has_mmu|arch_sh_no_co)
++#define arch_st40_300_nofpu_or_sh4a_nofpu  (arch_sh4a_st40_300_base|arch_sh_has_mmu|arch_sh_no_co)
++#define arch_st40_300_nofpu_or_sh2a_nofpu  (arch_st40_300_sh2a_base|arch_sh_no_mmu |arch_sh_no_co)
+ 
+ #define SH_MERGE_ARCH_SET(SET1, SET2) ((SET1) & (SET2))
+ #define SH_VALID_BASE_ARCH_SET(SET) (((SET) & arch_sh_base_mask) != 0)
+@@ -296,22 +311,32 @@
+  |               |          |`--------------------. |
+  |               |          |                      \|
+  |              SH3-nommu  SH4-nm-nf/SH2A-nofpu    SH3E/SH2A
+- |               |\         |          |      \     |    |
+- |               | `------. |     SH2A-nofpu   `----+---.|
+- |               |         \|            \          |   SH4/SH2A
+- |              SH3     SH4-nommu-nofpu   `---------+--. |   |
+- |              /|\         |                       |   \|   |
+- | .-----------' | `--------+---------------------. |  SH2A  |
+- |/              |          /                      \|        |
+- |               | .-------'                        |        |
+- |               |/                                 |        |
+-SH3-dsp         SH4-nofpu                          SH3E      |
+- |               |`-------------------------------. | .-----'
+- |               |                                 \|/
+- |              SH4A-nofpu                         SH4
+- | .------------' `-------------------------------. |
+- |/                                                \|
+-SH4AL-dsp                                          SH4A
++ |               |\         |          |    `-----. |    |
++ |               | \        | ST40-300-nf/SH2A-nf | |    |
++ |               |  \       |     |       |       `-+--. |
++ |               |   `----. |     |      SH2A-nofpu |   \|
++ |               |         \|     `----.   \        |   SH4/SH2A
++ |              SH3  SH4-nommu-nofpu    \   `-------+--. |   |
++ |              /|\         |            \          |   \|   |
++ | .-----------' | `--------+-------------+-------. |  SH2A  |
++ |/              |          |             |        \|        |
++ |               | .--------'             |         |        |
++ |               |/                       |         |        |
++SH3-dsp         SH4-nofpu                 |        SH3E      |
++ |               |`-----------------------+-------. | .------'
++ |               |                        |        \|/
++ |               |                        |        SH4
++ |              SH4A-nofpu/ST40-300-nofpu |         | 
++ |               |`.        | .-----------'         |
++ |               | |        |/                      |
++ |               | |       ST40-300-nofpu           |
++ |               | |        `-----------------------+------------.
++ |               | `------------------------------. |            |
++ |               |                                 \|            |
++ |              SH4A-nofpu                         SH4A/ST40-300 |
++ | .------------' `-------------------------------. |    | .-----'
++ |/                                                \|    |/
++SH4AL-dsp                                          SH4A ST40-300
+ */
+ 
+ /* Central branches.  */
+@@ -326,9 +351,12 @@
+ 		| arch_sh2a_or_sh3e_up \
+ 		| arch_sh3_nommu_up)
+ #define arch_sh2a_nofpu_or_sh4_nommu_nofpu_up  (arch_sh2a_nofpu_or_sh4_nommu_nofpu \
+-		| arch_sh2a_nofpu_up \
++		| arch_st40_300_nofpu_or_sh2a_nofpu_up \
+ 		| arch_sh2a_or_sh4_up \
+ 		| arch_sh4_nommu_nofpu_up)
++#define arch_st40_300_nofpu_or_sh2a_nofpu_up   (arch_st40_300_nofpu_or_sh2a_nofpu \
++		| arch_sh2a_nofpu_up \
++		| arch_st40_300_nofpu_up)
+ #define arch_sh2a_nofpu_up                     (arch_sh2a_nofpu \
+ 		| arch_sh2a_up)
+ #define arch_sh3_nommu_up                      (arch_sh3_nommu \
+@@ -342,7 +370,13 @@
+ 		| arch_sh4_nofpu_up)
+ #define arch_sh4_nofpu_up                      (arch_sh4_nofpu \
+ 		| arch_sh4_up \
++		| arch_st40_300_nofpu_or_sh4a_nofpu_up)
++#define arch_st40_300_nofpu_or_sh4a_nofpu_up   (arch_st40_300_nofpu_or_sh4a_nofpu \
++		| arch_st40_300_nofpu_up \
++		| arch_st40_300_or_sh4a_up \
+ 		| arch_sh4a_nofpu_up)
++#define arch_st40_300_nofpu_up                 (arch_st40_300_nofpu \
++		| arch_st40_300_up)
+ #define arch_sh4a_nofpu_up                     (arch_sh4a_nofpu \
+ 		| arch_sh4a_up \
+ 		| arch_sh4al_dsp_up)
+@@ -360,8 +394,12 @@
+ #define arch_sh3e_up                           (arch_sh3e \
+ 		| arch_sh4_up)
+ #define arch_sh4_up                            (arch_sh4 \
+-		| arch_sh4a_up)
++		| arch_st40_300_or_sh4a_up)
++#define arch_st40_300_or_sh4a_up               (arch_st40_300_or_sh4a \
++		| arch_sh4a_up \
++		| arch_st40_300_up)
+ #define arch_sh4a_up                           (arch_sh4a)
++#define arch_st40_300_up                       (arch_st40_300)
+ 
+ /* Left branch.  */
+ #define arch_sh_dsp_up                         (arch_sh_dsp  \
+@@ -452,7 +490,7 @@
+ 
+ /* 0110nnnnmmmm1101 extu.w <REG_M>,<REG_N>*/{"extu.w",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_D}, arch_sh_up},
+ 
+-/* 0000nnnn11100011 icbi @<REG_N>       */{"icbi",{A_IND_N},{HEX_0,REG_N,HEX_E,HEX_3}, arch_sh4a_nofpu_up},
++/* 0000nnnn11100011 icbi @<REG_N>       */{"icbi",{A_IND_N},{HEX_0,REG_N,HEX_E,HEX_3}, arch_st40_300_nofpu_or_sh4a_nofpu_up},
+ 
+ /* 0100nnnn00101011 jmp @<REG_N>        */{"jmp",{A_IND_N},{HEX_4,REG_N,HEX_2,HEX_B}, arch_sh_up},
+ 
+@@ -601,7 +639,7 @@
+ 
+ /* 11000110i8*4.... mov.l @(<disp>,GBR),R0*/{"mov.l",{A_DISP_GBR,A_R0},{HEX_C,HEX_6,IMM0_8BY4}, arch_sh_up},
+ 
+-/* 1101nnnni8p4.... mov.l @(<disp>,PC),<REG_N>*/{"mov.l",{A_DISP_PC,A_REG_N},{HEX_D,REG_N,PCRELIMM_8BY4}, arch_sh_up},
++/* 1101nnnni8p4.... mov.l @(<adisp>,PC),<REG_N>*/{"mov.l",{A_DISP_PC,A_REG_N},{HEX_D,REG_N,PCRELIMM_8BY4}, arch_sh_up},
+ 
+ /* 0000nnnnmmmm1110 mov.l @(R0,<REG_M>),<REG_N>*/{"mov.l",{A_IND_R0_REG_M,A_REG_N},{HEX_0,REG_N,REG_M,HEX_E}, arch_sh_up},
+ 
+@@ -645,7 +683,7 @@
+ {"mov.w",{A_REG_M,A_DISP_REG_N},{HEX_3,REG_N,REG_M,HEX_1,HEX_1,DISP1_12BY2}, arch_sh2a_nofpu_up | arch_op32},
+ /* 0011nnnnmmmm0001 0101dddddddddddd mov.w @(<DISP12>,<REG_M>),<REG_N> */
+ {"mov.w",{A_DISP_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_1,HEX_5,DISP0_12BY2}, arch_sh2a_nofpu_up | arch_op32},
+-/* 11000111i8p4.... mova @(<disp>,PC),R0*/{"mova",{A_DISP_PC,A_R0},{HEX_C,HEX_7,PCRELIMM_8BY4}, arch_sh_up},
++/* 11000111i8p4.... mova @(<adisp>,PC),R0*/{"mova",{A_DISP_PC,A_R0},{HEX_C,HEX_7,PCRELIMM_8BY4}, arch_sh_up},
+ /* 0000nnnn11000011 movca.l R0,@<REG_N> */{"movca.l",{A_R0,A_IND_N},{HEX_0,REG_N,HEX_C,HEX_3}, arch_sh4_nommu_nofpu_up},
+ 
+ /* 0000nnnn01110011 movco.l r0,@<REG_N> */{"movco.l",{A_R0,A_IND_N},{HEX_0,REG_N,HEX_7,HEX_3}, arch_sh4a_nofpu_up},
+@@ -840,7 +878,7 @@
+ 
+ /* 0110nnnnmmmm1001 swap.w <REG_M>,<REG_N>*/{"swap.w",{ A_REG_M,A_REG_N},{HEX_6,REG_N,REG_M,HEX_9}, arch_sh_up},
+ 
+-/* 0000000010101011 synco               */{"synco",{0},{HEX_0,HEX_0,HEX_A,HEX_B}, arch_sh4a_nofpu_up},
++/* 0000000010101011 synco               */{"synco",{0},{HEX_0,HEX_0,HEX_A,HEX_B}, arch_st40_300_nofpu_or_sh4a_nofpu_up},
+ 
+ /* 0100nnnn00011011 tas.b @<REG_N>      */{"tas.b",{A_IND_N},{HEX_4,REG_N,HEX_1,HEX_B}, arch_sh_up},
+ 
+@@ -1118,7 +1156,7 @@
+ /* 1111nnnn01001101 fneg <F_REG_N>     */{"fneg",{F_REG_N},{HEX_F,REG_N,HEX_4,HEX_D}, arch_sh2e_up},
+ /* 1111nnn001001101 fneg <D_REG_N>     */{"fneg",{D_REG_N},{HEX_F,REG_N,HEX_4,HEX_D}, arch_sh2a_or_sh4_up},
+ 
+-/* 1111011111111101 fpchg               */{"fpchg",{0},{HEX_F,HEX_7,HEX_F,HEX_D}, arch_sh4a_up},
++/* 1111011111111101 fpchg               */{"fpchg",{0},{HEX_F,HEX_7,HEX_F,HEX_D}, arch_st40_300_or_sh4a_up},
+ 
+ /* 1111101111111101 frchg               */{"frchg",{0},{HEX_F,HEX_B,HEX_F,HEX_D}, arch_sh4_up},
+ 
+@@ -1167,7 +1205,14 @@
+   /* 0100mmmm11110000 movml.l <REG_M>,@-R15 */ {"movmu.l",{A_REG_M,A_DEC_R15},{HEX_4,REG_M,HEX_F,HEX_0}, arch_sh2a_nofpu_up},
+   /* 0100mmmm11110100 movml.l @R15+,<REG_M> */ {"movmu.l",{A_INC_R15,A_REG_M},{HEX_4,REG_M,HEX_F,HEX_4}, arch_sh2a_nofpu_up},
+   /* 0000nnnn00111001 movrt <REG_N> */         {"movrt",{A_REG_N},{HEX_0,REG_N,HEX_3,HEX_9}, arch_sh2a_nofpu_up},
+-  /* 0100nnnn10000000 mulr R0,<REG_N> */       {"mulr",{A_R0,A_REG_N},{HEX_4,REG_N,HEX_8,HEX_0}, arch_sh2a_nofpu_up},
++  /* 0100nnnn10000000 mulr R0,<REG_N> */       {"mulr",{A_R0,A_REG_N},{HEX_4,REG_N,HEX_8,HEX_0}, arch_st40_300_nofpu_or_sh2a_nofpu_up},
++
++/* Experimental ST40-300 instructions. Not for submission to the netsources.  */
++  /* 0100nnnn10010000 mulr R1,<REG_N> */       {"mulr",{A_R1,A_REG_N},{HEX_4,REG_N,HEX_9,HEX_0}, arch_st40_300_nofpu_up},
++  /* 0100nnnn10100000 mulr R2,<REG_N> */       {"mulr",{A_R2,A_REG_N},{HEX_4,REG_N,HEX_A,HEX_0}, arch_st40_300_nofpu_up},
++  /* 0100nnnn10110000 mulr R3,<REG_N> */       {"mulr",{A_R3,A_REG_N},{HEX_4,REG_N,HEX_B,HEX_0}, arch_st40_300_nofpu_up},
++/* End of experimental.  */
++
+   /* 0000000001101000 nott */                  {"nott",{A_END},{HEX_0,HEX_0,HEX_6,HEX_8}, arch_sh2a_nofpu_up},
+   /* 0000000001011011 resbank */               {"resbank",{A_END},{HEX_0,HEX_0,HEX_5,HEX_B}, arch_sh2a_nofpu_up},
+   /* 0000000001101011 rts/n */                 {"rts/n",{A_END},{HEX_0,HEX_0,HEX_6,HEX_B}, arch_sh2a_nofpu_up},

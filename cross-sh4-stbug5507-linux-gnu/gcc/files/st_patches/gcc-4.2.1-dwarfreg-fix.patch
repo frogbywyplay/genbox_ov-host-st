@@ -1,0 +1,44 @@
+This patch changes DWARF CFI register numbers to fix a bug in the dwarf reader (currently fpscr is emitted as -1).
+It synchronises the DWARF CFI register numbers between the compiler/gdb/binutils and linux.
+
+Signed-off-by: Christian Bruel  <christian.bruel@st.com>
+
+Index: gcc/config/sh/linux-unwind.h
+===================================================================
+--- orig/gcc/config/sh/linux-unwind.h	(revision 279)
++++ new/gcc/config/sh/linux-unwind.h	(working copy)
+@@ -45,7 +45,7 @@
+ #define SH_DWARF_FRAME_FP0	25
+ #define SH_DWARF_FRAME_XD0	87
+ #define SH_DWARF_FRAME_PR	17
+-#define SH_DWARF_FRAME_GBR	19
++#define SH_DWARF_FRAME_GBR	18
+ #define SH_DWARF_FRAME_MACH	20
+ #define SH_DWARF_FRAME_MACL	21
+ #define SH_DWARF_FRAME_PC	16
+Index: gcc/config/sh/sh.h
+===================================================================
+--- orig/gcc/config/sh/sh.h	(revision 279)
++++ new/gcc/config/sh/sh.h	(working copy)
+@@ -3199,16 +3199,18 @@
+    ? (TARGET_SH5 ? 18 : 17) \
+    : (REGNO) == PR_MEDIA_REG \
+    ? (TARGET_SH5 ? 18 : (unsigned) -1) \
+-   : (REGNO) == T_REG \
+-   ? (TARGET_SH5 ? 242 : 18) \
+    : (REGNO) == GBR_REG \
+-   ? (TARGET_SH5 ? 238 : 19) \
++   ? (TARGET_SH5 ? 238 : 18) \
+    : (REGNO) == MACH_REG \
+    ? (TARGET_SH5 ? 239 : 20) \
+    : (REGNO) == MACL_REG \
+    ? (TARGET_SH5 ? 240 : 21) \
++   : (REGNO) == T_REG \
++   ? (TARGET_SH5 ? 242 : 22) \
+    : (REGNO) == FPUL_REG \
+    ? (TARGET_SH5 ? 244 : 23) \
++   : (REGNO) == FPSCR_REG \
++   ? (TARGET_SH5 ? 243 : 24) \
+    : (unsigned) -1)
+ 
+ /* This is how to output a reference to a symbol_ref.  On SH5,

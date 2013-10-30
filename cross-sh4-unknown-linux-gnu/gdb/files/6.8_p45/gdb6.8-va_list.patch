@@ -1,0 +1,127 @@
+--- gdb-6.8_a/gdb/starm/STARM_Interface.cpp	2009-05-20 14:40:47.000000000 +0530
++++ gdb-6.8/gdb/starm/STARM_Interface.cpp	2009-05-20 15:40:33.000000000 +0530
+@@ -448,7 +448,7 @@
+ extern "C"
+ void  starmLogMessage( char* iFormat,...)
+ {
+-  va_list args=NULL;
++  va_list args;
+ 
+   // Arguments list treatment
+   if (iFormat != NULL)
+--- gdb-6.8_a/gdb/starm/STARM_Useful.cpp	2009-05-20 17:38:58.000000000 +0530
++++ gdb-6.8/gdb/starm/STARM_Useful.cpp	2009-05-20 17:39:09.000000000 +0530
+@@ -30,7 +30,7 @@
+ 
+ void STARM_Debug::log( char* iFormat, ...)
+ {
+-  va_list args=NULL;
++  va_list args;
+ 
+   if (m_isOn == false)
+     {
+@@ -54,7 +54,7 @@
+ extern "C"
+ void StarmDebugC( char* iFormat, ...)
+ {
+-  va_list args=NULL;
++  va_list args;
+ 
+   // Arguments list treatment
+   if (iFormat != NULL)
+--- gdb-6.8_a/gdb/starm/STARM_GdbInterface.c	2009-05-20 17:26:58.000000000 +0530
++++ gdb-6.8/gdb/starm/STARM_GdbInterface.c	2009-05-20 18:05:32.000000000 +0530
+@@ -324,7 +324,7 @@
+ 
+ void starm_writeMessage( int iStream, char* iFormat, ...)
+ {
+-  va_list args=NULL;
++  va_list args;
+ 
+   // Arguments list treatment
+   if (iFormat != NULL)
+@@ -345,7 +345,7 @@
+ 
+ void starm_writeLongMessage( int iStream, char* iFormat, ...)
+ {
+-  va_list args=NULL;
++  va_list args;
+ 
+   // Arguments list treatment
+   if (iFormat != NULL)
+@@ -397,7 +397,7 @@
+   volatile struct gdb_exception ex;
+   struct expression *expr = NULL;
+   struct cleanup *old_chain = NULL;
+-  va_list args=NULL;
++  va_list args;
+   char msgBuff[4096];
+   int rc = 1;
+ 
+@@ -522,7 +522,7 @@
+   volatile struct gdb_exception ex;
+   struct expression *expr = NULL;
+   struct cleanup *old_chain = NULL;
+-  va_list args=NULL;
++  va_list args;
+   char msgBuff[4096];
+ 
+   if (iFormat == NULL)
+--- gdb-6.8_a/gdb/stgdi/ST_GdiUseful.cpp	2009-05-20 18:07:27.000000000 +0530
++++ gdb-6.8/gdb/stgdi/ST_GdiUseful.cpp	2009-05-20 18:07:49.000000000 +0530
+@@ -754,7 +754,7 @@
+  *-----------------------------------------------------------------------*/
+ string format( char* ipFormat, ...)
+ {
+-	va_list args=NULL;
++	va_list args;
+ 
+ 	va_start( args, ipFormat);
+ 	char* msgBuff = ConvertFormat2String( ipFormat, args);
+@@ -993,7 +993,7 @@
+ 	// Arguments list treatment
+ 	if (iFormat != NULL)
+ 	{
+-		va_list args=NULL;
++		va_list args;
+ 
+ 		va_start( args, iFormat);
+ 		char* msgBuff = ConvertFormat2String( iFormat, args);
+@@ -1289,7 +1289,7 @@
+ 	// Arguments list treatment
+ 	if (iFormat != NULL)
+ 	{
+-		va_list args=NULL;
++		va_list args;
+ 
+ 		va_start( args, iFormat);
+ 		char* msgBuff = ConvertFormat2String( iFormat, args);
+@@ -2262,7 +2262,7 @@
+ #define MESSAGE_FORMAT_FCT( FUNC, SEVERITY)								\
+ 	string FUNC( char* ipModule, char* ipFormat, ...)					\
+ 	{																	\
+-		va_list args=NULL;												\
++		va_list args;												\
+ 																		\
+ 		va_start( args, ipFormat);										\
+ 		char* msgBuff = ConvertFormat2String( ipFormat, args);			\
+--- gdb-6.8_a/gdb/stgdi/ST_Client.cpp	2009-05-20 17:26:58.000000000 +0530
++++ gdb-6.8/gdb/stgdi/ST_Client.cpp	2009-05-20 18:09:33.000000000 +0530
+@@ -3460,7 +3460,7 @@
+ 		return;
+ 	  }
+ 
+-	va_list args=NULL;
++	va_list args;
+ 
+ 	va_start( args, ipFormat);
+ 	char* msgBuff = ConvertFormat2String( ipFormat, args);
+@@ -3488,7 +3488,7 @@
+ 		return;
+ 	  }
+ 
+-	va_list args=NULL;
++	va_list args;
+ 
+ 	va_start( args, ipFormat);
+ 	char* msgBuff = ConvertFormat2String( ipFormat, args);

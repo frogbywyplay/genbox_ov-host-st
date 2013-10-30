@@ -1,0 +1,18 @@
+Patch removing an unnecessary free from the kernel module handling in gdb.
+
+Signed-off-by: Chris Smith <chris.smith@st.com>
+
+Index: gdb-6.8/gdb/linux-awareness.c
+===================================================================
+--- gdb-6.8.orig/gdb/linux-awareness.c	2009-03-05 12:52:01.000000000 +0000
++++ gdb-6.8/gdb/linux-awareness.c	2009-03-05 12:58:45.000000000 +0000
+@@ -2109,7 +2109,8 @@
+     xfree (info->sections);
+     if (info->relocated_file != NULL)
+ 	unlink (info->relocated_file);
+-    xfree (info->relocated_file);
++    /* No need to free info->relocated_file, the BFD structure will point to
++       it, and it'll be freed by the solib framework. */
+     xfree (info->real_file);
+ 
+     if (info->mod)

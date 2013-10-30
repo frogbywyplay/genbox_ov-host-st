@@ -1,0 +1,30 @@
+Index: gcc-4.2.4/gcc/gcc.c
+===================================================================
+--- gcc-4.2.4.orig/gcc/gcc.c	2007-09-01 16:28:30.000000000 +0100
++++ gcc-4.2.4/gcc/gcc.c	2008-10-09 10:59:16.000000000 +0100
+@@ -3948,16 +3948,22 @@
+ 	      PREFIX_PRIORITY_LAST, 2, 0);
+   add_prefix (&exec_prefixes, standard_exec_prefix, "BINUTILS",
+ 	      PREFIX_PRIORITY_LAST, 2, 0);
+-  add_prefix (&exec_prefixes, standard_exec_prefix_1, "BINUTILS",
++  if (*cross_compile == '0')
++    {
++      add_prefix (&exec_prefixes, standard_exec_prefix_1, "BINUTILS",
+ 	      PREFIX_PRIORITY_LAST, 2, 0);
+-  add_prefix (&exec_prefixes, standard_exec_prefix_2, "BINUTILS",
++      add_prefix (&exec_prefixes, standard_exec_prefix_2, "BINUTILS",
+ 	      PREFIX_PRIORITY_LAST, 2, 0);
++    }
+ #endif
+ 
+   add_prefix (&startfile_prefixes, standard_exec_prefix, "BINUTILS",
+ 	      PREFIX_PRIORITY_LAST, 1, 0);
+-  add_prefix (&startfile_prefixes, standard_exec_prefix_2, "BINUTILS",
++  if (*cross_compile == '0')
++    {
++      add_prefix (&startfile_prefixes, standard_exec_prefix_2, "BINUTILS",
+ 	      PREFIX_PRIORITY_LAST, 1, 0);
++    }
+ 
+   tooldir_prefix = concat (tooldir_base_prefix, spec_machine,
+ 			   dir_separator_str, NULL);

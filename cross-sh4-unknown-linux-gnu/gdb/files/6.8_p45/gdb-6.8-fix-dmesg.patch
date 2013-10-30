@@ -1,0 +1,17 @@
+Stop the "dmesg" command infinite looping when the log buffer is full.
+
+Signed-off-by: Chris Smith <chris.smith@st.com>
+
+Index: gdb-6.8/gdb/linux-awareness.c
+===================================================================
+--- gdb-6.8.orig/gdb/linux-awareness.c	2009-03-18 12:00:25.000000000 +0000
++++ gdb-6.8/gdb/linux-awareness.c	2009-03-18 12:01:12.000000000 +0000
+@@ -3767,7 +3767,7 @@
+ 							 TYPE_LENGTH(builtin_type_int));
+     CORE_ADDR buf_end = ADDR (__log_buf) + log_len;
+     unsigned long log_end = read_memory_unsigned_integer (ADDR (log_end),
+-							  TYPE_LENGTH(builtin_type_unsigned_long)) & (log_len - 1);
++							  TYPE_LENGTH(builtin_type_unsigned_long));
+     CORE_ADDR log_start = log_end > log_len ?
+ 	((log_end) & (log_len - 1)) + ADDR (__log_buf)
+ 	: ADDR (__log_buf);

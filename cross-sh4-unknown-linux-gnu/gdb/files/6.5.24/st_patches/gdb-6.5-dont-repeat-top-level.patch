@@ -1,0 +1,18 @@
+Bugzilla #2067: When defining a procedure interactively, top-level commands 
+could be repeated by pressing enter, while commands in sub-blocks could not be.
+Generally this repetition is undesirable, so we suppress it on the top level too.
+
+Signed-off-by: Chris Smith <chris.smith@st.com>
+
+Index: gdb-6.5/gdb/cli/cli-script.c
+===================================================================
+--- gdb-6.5.orig/gdb/cli/cli-script.c	2007-09-18 17:03:26.000000000 +0100
++++ gdb-6.5/gdb/cli/cli-script.c	2007-09-19 16:38:51.000000000 +0100
+@@ -1027,6 +1027,7 @@
+ 
+   while (1)
+     {
++      dont_repeat();
+       val = read_next_line (&next);
+ 
+       /* Ignore blank lines or comments.  */

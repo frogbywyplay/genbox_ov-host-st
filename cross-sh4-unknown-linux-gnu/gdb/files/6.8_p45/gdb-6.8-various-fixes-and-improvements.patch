@@ -1,0 +1,680 @@
+Patch from Fred Riss <frederic.riss@st.com>:
+
+" - Fix thread 'hopping' when a breakpoint is hit in the wrong thread.
+ - Fix setting a pending breakpoint on the first instruction of the init
+function of the first loaded module.
+ - Fix software-singlestepping corner cases
+ - Default to H/W singlestepping, and add a way to automatically skip
+the TLB miss handlers.
+ - Add a switch to revert to the old singlestepping behavior
+ - Register module handling breakpoints only once the code is marked as
+loaded
+ - ST40: use the sdi_virtualMem API to access kernel virtual memory.
+This is faster and less intrusive. 
+ - ...and various little fixes and comments here and there.
+
+The big point here is 'Default to H/W singlestepping' as this is a major
+change in behavior. If that causes any issue, the user can revert to the
+old behavior by using 'set linux-awareness use_software_singlestep'."
+
+Signed-off-by: Chris Smith <chris.smith@st.com>
+Index: gdb-6.8/gdb/linux-awareness.c
+===================================================================
+--- gdb-6.8.orig/gdb/linux-awareness.c
++++ gdb-6.8/gdb/linux-awareness.c
+@@ -100,6 +100,7 @@ struct target_so_ops linux_aware_so_ops;
+ static int use_linux_awareness;
+ 
+ static int loaded;
++static int use_software_singlestep;
+ static int enable_vm_translation = 1;
+ static int enable_task_awareness = 1;
+ static int linux_awareness_auto_activate_p = 1;
+@@ -107,6 +108,7 @@ static int auto_debug_process = 1;
+ static unsigned int log_chunk_size = 128;
+ static int stick_to_kernelspace;
+ 
++static CORE_ADDR singlestep_pc, faked_singlestep_pc;
+ static CORE_ADDR singlestep_dest = ~(CORE_ADDR)0;
+ static ptid_t singlestep_ptid;
+ static CORE_ADDR saved_singlestep_dest;
+@@ -290,12 +292,11 @@ DECLARE_FIELD(zone,             nr_inact
+ 
+ /* Data which we have to change only when the image changes */
+ 
+-static int init_module_return_resolved;
+-
+ /* solib emulation data */
+ 
+ static struct breakpoint *shlib_event_load_bp;
+ static struct breakpoint *shlib_event_init_bp;
++static struct breakpoint *shlib_event_post_init_bp;
+ static struct breakpoint *shlib_event_free_bp;
+ static struct breakpoint *thread_event_do_exit_bp;
+ static struct breakpoint *thread_event_low_mem_bp;
+@@ -773,16 +774,27 @@ layout_sections (bfd* file, struct lm_in
+ 		|| offsets[i] != ~0UL
+ 		|| strncmp (name, ".init", 5) == 0)
+ 		continue;
+-	    DEBUG (MODULE, 4, "\t%s\n", name);
+ 	    offsets[i] = get_offset (&core_size, s) + lm_info->module_core;
++	    DEBUG (MODULE, 4, "\t%s %lx\n", name, core_size);
+ 	}
+     }
+ 
+     lm_info->computed_core_size = core_size;
+ 
++    /* This happens when we read module debug inforamtion after
++       the init is finished (eg. after attaching). We need a base
++       for the init code and data. Take the beginning of the next
++       page, this will be erased from the debuginfo anyway.
++
++       Avoid using just the end of the module_core part to avoid a
++       BFD warning when there's an empty bss section at the end of
++       module_core. When this happens, this section will overlap
++       with the first of module_init if we don't round up to the
++       next page.
++    */
+     if (base == 0)
+-	base = lm_info->module_core + core_size;
+-
++	base = (lm_info->module_core + core_size + 4096) & ~0xFFF;
++
+     DEBUG (MODULE, 4, "Init section allocation\n");
+     for (m = 0; m < ARRAY_SIZE(masks); ++m) {
+ 	for (i = 0; i < hdr->e_shnum; ++i) {
+@@ -864,14 +876,20 @@ module load time to handle such cacses."
+ }
+ 
+ /****************************************************************************/
++static struct bp_target_info *singlestep_bp_info;
+ 
+ static struct bp_location *
+ bp_location_from_shadow_contents(struct bp_target_info *info)
+ {
+     struct bp_location *bp_loc;
+ 
+-    if (singlestep_dest == info->placed_address)
++    if (singlestep_dest == info->placed_address) {
++	singlestep_bp_info = info;
+ 	return NULL;
++    } else if (info == singlestep_bp_info) {
++	singlestep_bp_info = NULL;
++        return NULL;
++    }
+ 
+     bp_loc = (struct bp_location *)((char*)info - offsetof(struct bp_location,
+ 							   target_info));
+@@ -1376,6 +1394,12 @@ linux_aware_resume (ptid_t pid, int step
+ /* 	inferior_ptid = saved_ptid; */
+ /*     } */
+ 
++    if (shlib_event_post_init_bp
++	&& shlib_event_init_bp) {
++	delete_breakpoint (shlib_event_init_bp);
++	shlib_event_init_bp = NULL;
++    }
++
+     if (!force_hw_singlestep || waiting_on_bp) {
+ 	if (!has_userspace_breakpoint
+ 	    && thread_list_needs_clearing
+@@ -2274,7 +2298,7 @@ linux_aware_special_symbol_handling (voi
+ 	struct lm_info *info = list->info;
+ 
+ 	if (! info->so_list_updated) {
+-	    if (info->needs_relocated_file) {
++	    if (info->needs_relocated_file && info->mod != NULL) {
+ 		strcpy (info->mod->so_name, info->real_file);
+ 
+ 		if (info->computed_init_size
+@@ -2607,18 +2631,6 @@ linux_aware_current_sos (void)
+ 
+     current_pc = read_pc ();
+ 
+-    if (!init_module_return_resolved
+-	&& shlib_event_init_bp
+-	&& current_pc == shlib_event_init_bp->loc->address) {
+-	delete_breakpoint (shlib_event_init_bp);
+-	thread_awareness_inhibit();
+-	shlib_event_init_bp
+-	    = create_solib_event_breakpoint (linux_awareness_ops->lo_return_address_at_start_of_function());
+-	thread_awareness_exhibit();
+-	init_module_return_resolved = 1;
+-	return so_list_from_lm_infos ();
+-    }
+-
+     if (shlib_event_load_bp != NULL
+ 	&& current_pc == shlib_event_load_bp->loc->address)
+ 	{
+@@ -2637,9 +2649,16 @@ linux_aware_current_sos (void)
+ 		&& lm_infos->info->this_module == ptr
+ 		&& lm_infos->info->module_init
+ 		&& lm_infos->info->init
+-		&& !init_module_return_resolved) {
++		&& !shlib_event_post_init_bp) {
++		/* Create the temporary init breakpoint as a thread
++		   event instead of a solib event. This allows the
++		   debugger to stop if the user has set a breakpoint
++		   on the same location. (infrun won't stop if a
++		   breakpoint is set at the same location as a solib
++		   event breakpoint.
++		*/
+ 		shlib_event_init_bp
+-		    = create_solib_event_breakpoint (lm_infos->info->init);
++		    = create_thread_event_breakpoint (lm_infos->info->init);
+ 		DEBUG (MODULE, 3, "Created shlib_event_init_bp : %s %i\n",
+ 		       paddr (lm_infos->info->init),
+ 		       shlib_event_init_bp->loc->inserted);
+@@ -2648,8 +2667,8 @@ linux_aware_current_sos (void)
+ 	    return so_list_from_lm_infos ();
+ 	}
+ 
+-    if (shlib_event_init_bp
+-	&& current_pc == shlib_event_init_bp->loc->address) {
++    if (shlib_event_post_init_bp
++	&& current_pc == shlib_event_post_init_bp->loc->address) {
+ 
+ 	if (last_loaded != NULL
+ 	    && last_loaded->mod
+@@ -2715,7 +2734,9 @@ static int
+ linux_aware_in_dynsym_resolve_code (CORE_ADDR pc)
+ {
+     DEBUG (MODULE, 3, "linux_aware_in_dynsym_resolve_code\n");
+-    return 0;
++    return use_software_singlestep == 0
++	&& (linux_awareness_ops->lo_is_tlb_miss_handler ?
++	    linux_awareness_ops->lo_is_tlb_miss_handler (pc) : 0);
+ }
+ 
+ static void
+@@ -2807,12 +2828,6 @@ thread_list_clear_cache ()
+ 	xfree (ps);
+     }
+ 
+-    if (current_process != NULL) {
+-	xfree (current_process->comm);
+-	xfree (current_process);
+-	current_process = NULL;
+-    }
+-
+     thread_list_needs_clearing = 0;
+ }
+ 
+@@ -2995,6 +3010,31 @@ linux_aware_fetch_registers (struct regc
+ 	if (! ptid_equal (current_ptid, inferior_ptid)
+ 	    && thread_list_contains_pid (PIDGET (inferior_ptid))) {
+ 	    CORE_ADDR task_struct = get_current_task_struct ();
++
++	    /* Here we return a wrong information to GDB! In fact,
++	       when software singletstepping a thread, you can
++	       sometimes hit the singlstep breakpoint in another
++	       thread. In that case, GDB looks at the PC for the
++	       singlstep'd thread and only retries the stepping if
++	       this thread's PC hasn't changed... In our case, the
++	       thread's PC has changed because the scheduler kicked
++	       in, but functionally, the instruction we were stepping
++	       hasn't been executed yet. So we detect that situation
++	       and forge the PC register value for the originating
++	       thread so that GDB continues the stepping until it hits
++	       the right thread.
++	    */
++	    if (faked_singlestep_pc != 0
++		&& ptid_equal(inferior_ptid, saved_singlestep_ptid)
++		&& regno == gdbarch_pc_regnum(current_gdbarch)) {
++		int sz = register_size(current_gdbarch, regno);
++		gdb_byte *buf = alloca(sz);
++		store_unsigned_integer (buf, sz, faked_singlestep_pc);
++		regcache_raw_supply(rc, regno, buf);
++		faked_singlestep_pc = 0;
++		return;
++	    }
++
+ 	    thread_awareness_inhibit ();
+ 	    if (!linux_awareness_ops->lo_fetch_context_register (regno,
+ 								 task_struct)) {
+@@ -3089,8 +3129,6 @@ normal_stop_callback (struct bpstats *bs
+ static ptid_t
+ linux_aware_wait (ptid_t ptid, struct target_waitstatus *status)
+ {
+-    CORE_ADDR singlestep_dest = singlestep_dest;
+-    static int stopped_at_wrong_preempt_count = 0;
+     ptid_t res = linux_aware_pid_to_ptid (0);
+ 
+     if (!loaded || thread_awareness_inhibited ()) {
+@@ -3135,6 +3173,7 @@ linux_aware_wait (ptid_t ptid, struct ta
+ 	DEBUG (TASK, 3,"linux_aware_wait : getting current process\n");
+ 	if ((shlib_event_load_bp && pc == shlib_event_load_bp->loc->address)
+ 	    || (shlib_event_init_bp && pc == shlib_event_init_bp->loc->address)
++	    || (shlib_event_post_init_bp && pc == shlib_event_post_init_bp->loc->address)
+ 	    || (shlib_event_free_bp && pc == shlib_event_free_bp->loc->address)
+ 	    || (thread_event_do_exit_bp && pc == thread_event_do_exit_bp->loc->address)
+ 	    || (thread_event_low_mem_bp && pc == thread_event_low_mem_bp->loc->address)
+@@ -3143,6 +3182,15 @@ linux_aware_wait (ptid_t ptid, struct ta
+ 	    stick_to_kernelspace = 1;
+ 	}
+ 
++	if (shlib_event_init_bp
++	    && pc == shlib_event_init_bp->loc->address) {
++	    thread_awareness_inhibit();
++	    shlib_event_post_init_bp
++		= create_solib_event_breakpoint (linux_awareness_ops->lo_return_address_at_start_of_function());
++	    thread_awareness_exhibit();
++	    force_hw_singlestep = 1;
++	}
++
+ 	DEBUG (TASK, 3,"linux_aware_wait : pid => %i\n", pid);
+ 	current_ptid = res = ptid;
+ 	DEBUG (TASK, 3,"linux_aware_wait : ptid => %i\n", PIDGET (res));
+@@ -3153,6 +3201,15 @@ linux_aware_wait (ptid_t ptid, struct ta
+ 
+ 	if (!current_user_process
+ 	    || current_user_process->pid != pid) {
++	    if (current_process != NULL) {
++		xfree (current_process->comm);
++		xfree (current_process);
++		current_process = NULL;
++	    }
++
++	    DEBUG (USER, 4, "Different process %i != %i\n",
++		   current_user_process ? current_user_process->pid : -1,
++		   pid);
+ 	    switch_to_user_process (get_current_process ());
+ 	}
+ 
+@@ -3207,22 +3264,7 @@ linux_aware_wait (ptid_t ptid, struct ta
+ The code you were stepping has been preempted and the preemting task\n\
+ or interrupt has executed this exact same code. You should be able to\n\
+ find the frame you were stepping in the backtrace and to break there there.");
+-#if 0
+-		/* This will not match an existing ptid, but at the
+-		   same time won't generate a new thread event. */
+-		res = minus_one_ptid;
+-		stopped_at_wrong_preempt_count = 1;
+-#endif
+ 	    }
+-	} else if (stopped_at_wrong_preempt_count) {
+-#if 0
+-	    /* stopped_at_wrong_preempt_count will force a hardware
+-	       singlestep, so the condition that the flag is set is
+-	       sufficient.  */
+-	    stopped_at_wrong_preempt_count = 0;
+-	    res = minus_one_ptid;
+-#endif
+-	    ;
+ 	}
+ 
+ 	if (saved_singlestep_dest) {
+@@ -3261,6 +3303,7 @@ find the frame you were stepping in the 
+ 		DEBUG (TARGET, 2, "Ooops, wrong thread !\n");
+ 		saved_singlestep_ptid = singlestep_ptid;
+ 		saved_singlestep_dest = singlestep_dest;
++		faked_singlestep_pc = singlestep_pc;
+ 		if (pc == singlestep_dest)
+ 		    force_hw_singlestep = 1;
+ 	    }
+@@ -3384,6 +3427,7 @@ linux_aware_software_single_step (struct
+     deprecated_context_hook = linux_aware_context_hook;
+ 
+     singlestep_ptid = inferior_ptid;
++    singlestep_pc = pc;
+ 
+     if (saved_singlestep_dest
+ 	&& ptid_equal(singlestep_ptid, saved_singlestep_ptid)) {
+@@ -3408,6 +3452,7 @@ linux_aware_software_single_step (struct
+ 	if (pc == normal_stop_pc
+ 	    || (shlib_event_load_bp && pc == shlib_event_load_bp->loc->address)
+ 	    || (shlib_event_init_bp && pc == shlib_event_init_bp->loc->address)
++	    || (shlib_event_post_init_bp && pc == shlib_event_post_init_bp->loc->address)
+ 	    || (shlib_event_free_bp && pc == shlib_event_free_bp->loc->address)
+ 	    || (thread_event_do_exit_bp && pc == thread_event_do_exit_bp->loc->address)
+ 	    || (thread_event_low_mem_bp && pc == thread_event_low_mem_bp->loc->address)
+@@ -5372,6 +5417,10 @@ debugger)? ", banner2, banner1)) {
+ 		}
+ 	    }
+ 
++	    if (linux_awareness_ops->lo_post_load)
++		linux_awareness_ops->lo_post_load (get_exec_file (0),
++						   from_tty);
++
+ 	    /* Set current ptids. */
+ 	    ps = get_current_process ();
+ 	    current_ptid = linux_aware_pid_to_ptid (ps->pid);
+@@ -5388,6 +5437,7 @@ debugger)? ", banner2, banner1)) {
+ 	    /* Read module list. */
+ 	    linux_read_module_list();
+ 	    solib_add (NULL, from_tty, (struct target_ops *) 0, 1);
++	    linux_aware_solib_create_inferior_hook ();
+ 
+ 	    if (ps != NULL && ps->next != NULL) {
+ 		/* Let the linux-awareness target part believe that we've run. */
+@@ -5551,6 +5601,26 @@ add_module_search_path_command (char *ar
+ }
+ 
+ static void
++set_use_software_singlestep (char *arg, int from_tty,
++			     struct cmd_list_element *c)
++{
++    if (use_software_singlestep) {
++	if (linux_awareness_ops->lo_single_step_destination) {
++	    /* This isn't very nice. See gdbarch.h:SOFTWARE_SINGLE_STEP for
++	       some comments which would make that easier/nicer */
++	    set_gdbarch_software_single_step (current_gdbarch,
++					      &linux_aware_software_single_step);
++	} else {
++	    use_software_singlestep = 0;
++	    printf_filtered ("\
++The current target doesn't support software singlestep.\n");
++	}
++    } else {
++	set_gdbarch_software_single_step (current_gdbarch, NULL);
++    }
++}
++
++static void
+ linux_awareness_init ()
+ {
+     int ret;
+@@ -5590,7 +5660,6 @@ linux_awareness_init ()
+     linux_awareness_fix_debug_info ();
+ 
+     set_solib_ops (current_gdbarch, &linux_aware_so_ops);
+-    linux_aware_solib_create_inferior_hook ();
+ 
+     normal_stop_observer = observer_attach_normal_stop (normal_stop_callback);
+ 
+@@ -5599,17 +5668,6 @@ linux_awareness_init ()
+     free_depmod_cache ();
+     utsname_release = get_utsname_release_from_file ();
+ 
+-    /* Add single-stepping if needed */
+-    if (linux_awareness_ops->lo_single_step_destination) {
+-	/* This isn't very nice. See gdbarch.h:SOFTWARE_SINGLE_STEP for
+-	   some comments which would make that easier/nicer */
+-	set_gdbarch_software_single_step (current_gdbarch,
+-					  &linux_aware_software_single_step);
+-    } else {
+-	set_gdbarch_software_single_step (current_gdbarch, NULL);
+-    }
+-
+-
+     set_gdbarch_inner_than (current_gdbarch, linux_aware_inner_than);
+ 
+     c = lookup_cmd (&solib_search_path, setlist, "", 1, 1);
+@@ -5713,6 +5771,15 @@ linux_awareness_init ()
+ 			     &set_linux_awareness_cmd_list,
+ 			     &show_linux_awareness_cmd_list);
+ 
++    add_setshow_boolean_cmd ("use_software_singlestep",
++			     class_obscure,
++			     &use_software_singlestep,
++			     "Set the use of software singlstep by the linux awareness layer",
++			     "Show the use of software singlstep by the linux awareness layer",
++			     NULL, &set_use_software_singlestep, NULL,
++			     &set_linux_awareness_cmd_list,
++			     &show_linux_awareness_cmd_list);
++
+     deprecated_create_breakpoint_chain = deprecated_create_breakpoint_hook;
+     deprecated_create_breakpoint_hook = linux_aware_create_breakpoint_hook;
+     deprecated_delete_breakpoint_chain = deprecated_delete_breakpoint_hook;
+@@ -5779,8 +5846,6 @@ linux_aware_close (int quitting)
+     disable_breakpoint_at_pc = 0;
+     _inhibit_thread_register_awareness = 0;
+ 
+-    init_module_return_resolved = 0;
+-
+     if (shlib_event_load_bp) {
+ 	delete_breakpoint (shlib_event_load_bp);
+ 	shlib_event_load_bp = NULL;
+@@ -5791,6 +5856,11 @@ linux_aware_close (int quitting)
+ 	shlib_event_init_bp = NULL;
+     }
+ 
++    if (shlib_event_post_init_bp) {
++	delete_breakpoint (shlib_event_post_init_bp);
++	shlib_event_post_init_bp = NULL;
++    }
++
+     if (shlib_event_free_bp) {
+ 	delete_breakpoint (shlib_event_free_bp);
+ 	shlib_event_free_bp = NULL;
+Index: gdb-6.8/gdb/linux-awareness-sh4.c
+===================================================================
+--- gdb-6.8.orig/gdb/linux-awareness-sh4.c
++++ gdb-6.8/gdb/linux-awareness-sh4.c
+@@ -1,6 +1,9 @@
+ 
+-
+ #include "defs.h"
++
++#include <dlfcn.h>
++#include <stdint.h>
++
+ #include "block.h"
+ #include "command.h"
+ #include "frame.h"
+@@ -54,6 +57,35 @@ static int skip_schedule_frame = 1;
+ static unsigned long memory_start, memory_end;
+ static enum { PMB_UNKNOWN, PMB_ON, PMB_OFF } pmb_mode;
+ 
++/* sdi_VirtualMem API definition */
++
++/* This API (provided by Antony KING in his emulation libraries) is
++   used through a dlopen/dlsym call, ie. in a type-unsafe way. This
++   needs to be watched in future versions, especially if the API
++   evolves to handle ASIDs.
++*/
++
++typedef enum sdi_pte_type_e {
++  sdi_pte_unmapped,
++  sdi_pte_fixed,
++  sdi_pte_dynamic
++} sdi_pte_type_t;
++
++typedef struct sdi_pte_s {
++  uint32_t vaddress;
++  uint32_t paddress;
++  uint32_t size;
++  sdi_pte_type_t type;
++  struct {
++    unsigned int read:1;
++    unsigned int write:1;
++  } access;
++  uint32_t ptel;
++  uint32_t pteh;
++} sdi_pte_t;
++
++int (*sdi_VirtualMem)(int ptesize, const sdi_pte_t *ptelist);
++
+ /* Addresses used by the SH4 specific linux awareness. */
+ DECLARE_ADDR(contig_page_data);
+ DECLARE_ADDR(init_thread_union);
+@@ -70,6 +102,7 @@ DECLARE_ADDR(ret_from_irq);
+ DECLARE_ADDR(swapper_pg_dir);
+ DECLARE_ADDR(swapper_space);
+ DECLARE_ADDR(syscall_call);
++DECLARE_ADDR(tlb_miss);
+ DECLARE_ADDR(work_resched);
+ 
+ /* Fields used by the SH4 specific linux awareness. */
+@@ -484,16 +517,16 @@ syscall_frame_cache(struct frame_info *n
+ 
+     regcache_cooked_read_unsigned(get_current_regcache(),R15,&sp);
+     /* SP should be near the top of the stack which is on a page
+-       boundary. In fact, SP should certainly be pointing at the saved
+-       registers, but this seems more flexible if the asm in entry.S
+-       changes. */
++       boundary. In fact, SP should certainly be pointing just after
++       the pt_regs struct, but this seems more flexible if the asm in entry.S
++       changes, or if the SP unwinding is slightly off.
++
++       As the struct is at the top of the kernel stack, one needs to
++       compute the start address of the *next* page to substract from.
++    */
+     stack_top = (sp + 4096) & ~0xFFF;
+-    regs_addr = stack_top - sizeof(struct pt_regs);
+-
+-    /* The location of struct pt_regs upon syscall has changed between
+-       STLinux 2.0 and STLinux 2.2. */
+-    if (detected_version == V2_6_11)
+-	regs_addr -= 4;
++    /* EXPEVT is stacked before pt_regs */
++    regs_addr = stack_top - sizeof(struct pt_regs) - 4;
+ 
+     this_frame = get_prev_frame(next_frame);
+     *this_cache = FRAME_OBSTACK_ZALLOC(struct pt_regs);
+@@ -842,19 +875,50 @@ static enum page_status translate_addres
+     }
+ 
+     if (in_se_mode() || force_tlb_reprogramming) {
++	/* Don't use tlb reprogramming for userspace virtual memory
++	   access. We might remove that restriction in the future if
++	   the sdi_VirtualMem API grows ASIDs awareness, but for now
++	   just access the underlying 'translated' address. (This
++	   allows us to ignore ASIDs and page access restrictions)
++	*/
+ 	if (page_addr >= memory_start
+ 	    && page_addr < memory_end
+-	    && !force_tlb_reprogramming) {
++	    && !(force_tlb_reprogramming && (*addr & 0x80000000))) {
+ 	    page_addr -= memory_start;
+ 	} else {
+ 	    CORE_ADDR tlb_addr;
+-	    int valid, dirty;
+ 	    unsigned long virt, phys;
+ 
+-	    valid = (page_addr & _PAGE_PRESENT) != 0;
+-	    dirty = (page_addr & _PAGE_DIRTY) != 0;
+-	    virt = (*addr & (~0x3ffLL)) | (valid<<8) | (dirty<<9);
+-	    phys = page_addr & ~(1<<9);
++	    /* page_addr contains most of the bits already setup
++	       correclty. No need to do anything for 'V', 'SH', 'SZ0',
++	       'SZ1',...
++	       However, when want to override a few things:
++	       - Mark the page as dirty. Otherwise, if the page is
++	       clean and we try to write it, the write wont happen.
++	       - Mark the page as RW, so that we're not limited by
++	       software memory protection.
++
++	       Also, use a mask of 0x3ff for the address. The SH4
++	       supports 1K pages. We're supposed to get only 4K pages
++	       here, but keep that as generic as possible.
++	    */
++	    virt = (*addr & (~0xfffLL)) | (1<<8) /*valid*/ | (1<<9) /* dirty */;
++	    phys = (page_addr & ~(1<<9)) | (3 << 5) /* PR */ | (1<<2) /* dirty */;
++
++	    if (sdi_VirtualMem) {
++		sdi_pte_t pte;
++		pte.vaddress = *addr & ~0xfff;
++		pte.paddress = page_addr & ~0xfff;
++		pte.size = 4096;
++		pte.type = sdi_pte_dynamic;
++		pte.access.read = 1;
++		pte.access.write = 1;
++		pte.ptel = phys;
++		pte.pteh = (*addr & ~0xfffLL);
++
++		sdi_VirtualMem (1, &pte);
++		return PAGE_PRESENT;
++	    }
+ 
+ 	    /* This must be IO memory.
+ 	       page_addr contains the bus address, but we don't know
+@@ -872,7 +936,7 @@ static enum page_status translate_addres
+ 	       We achieve that using an associative write to the UTLB
+ 	       memory mapped data array. */
+ 	    tlb_addr = 0xF6000000 | (1<<7); /* Bit 7 means associative write.*/
+-	    write_memory_unsigned_integer(tlb_addr, 4, *addr & (~0x3ffLL));
++	    write_memory_unsigned_integer(tlb_addr, 4, *addr & (~0xfffLL));
+ 
+ 	    /* Add a TLB entry for this page */
+ 	    /* Address array => VPN + valid bit + dirty bit */
+@@ -1719,19 +1783,77 @@ sh4_linux_awareness_close()
+     cache_layout_known = 0;
+     has_started = 0;
+     pmb_mode = PMB_UNKNOWN;
++    sdi_VirtualMem = NULL;
+ }
+ 
++static int is_tlb_miss_handler (CORE_ADDR pc)
++{
++    /* This isn't 100% accurate, but we just want not to stop in the
++       minor pagefault handler that is small. */
++    return HAS_ADDR(tlb_miss) &&
++	ADDR(tlb_miss) <= pc &&
++	pc < ADDR(tlb_miss) + 100;
++}
++
++static void sh4_post_load (char *prog, int fromtty)
++{
++    FILE *maps = fopen ("/proc/self/maps", "r");
++    char *line = NULL, *endline;
++    size_t sz;
++    char *lib = NULL;
++    void *libhandle;
++    int len;
++
++    static char stmc1[] = "libsh4sdi-ethmp.so";
++    static char stmc2[] = "libsh4sdi-stmc2.so";
++
++    if (maps == NULL) goto fail;
++
++    while ((len = getline (&line, &sz, maps)) >= 0) {
++	/* The '- 1' here is for the terminating '\n' character. */
++	endline = line + len - 1;
++	if (len > sizeof(stmc1)
++	    && strncmp (endline - strlen(stmc1), stmc1, strlen(stmc1)) == 0) {
++	    lib = stmc1;
++	    break;
++	}
++	if (len > sizeof(stmc2)
++	    && strncmp (endline - strlen(stmc2), stmc2, strlen(stmc2)) == 0) {
++	    lib = stmc2;
++	    break;
++	}
++    }
++
++    xfree (line);
++    if (lib == NULL) goto fail;
++
++    libhandle = dlopen (lib, RTLD_LAZY);
++    if (libhandle == NULL) goto fail;
++    sdi_VirtualMem = dlsym(libhandle, "sdi_VirtualMem");
++    if (sdi_VirtualMem == NULL) goto fail;
++
++    return;
++
++ fail:
++    warning (
++"Impossible to find the current target connection library. The\n"
++"sdi_VirtualMem API won't be used.");
++}
++
++
+ struct linux_awareness_ops sh4_linux_awareness_ops = {
+     .name = "SH4",
+     .lo_check = sh4_linux_awareness_check,
+     .lo_init = sh4_linux_awareness_init,
+     .lo_close = sh4_linux_awareness_close,
++    .lo_post_load = sh4_post_load,
+     .lo_address_needs_translation = linux_sh4_address_needs_translation,
+     .lo_translate_memory_address = translate_memory_address,
+     .lo_translate_memory_watch_address = translate_memory_watch_address,
+     .lo_can_write = sh4_linux_can_write,
+     .lo_is_user_address = sh4_linux_is_user_address,
+     .lo_is_kernel_address = sh4_linux_is_kernel_address,
++    .lo_is_tlb_miss_handler = is_tlb_miss_handler,
+     .lo_flush_cache = linux_sh4_flush_cache_for_region,
+     .lo_single_step_destination = sh4_linux_single_step_destination,
+     .lo_clear_cache = sh4_linux_clear_cache,
+Index: gdb-6.8/gdb/linux-awareness.h
+===================================================================
+--- gdb-6.8.orig/gdb/linux-awareness.h
++++ gdb-6.8/gdb/linux-awareness.h
+@@ -126,6 +126,7 @@ struct linux_awareness_ops {
+     int (*lo_can_write)(CORE_ADDR addr, CORE_ADDR task_struct);
+     int (*lo_is_user_address)(CORE_ADDR addr);
+     int (*lo_is_kernel_address)(CORE_ADDR addr);
++    int (*lo_is_tlb_miss_handler)(CORE_ADDR addr);
+     void (*lo_flush_cache)(CORE_ADDR virtaddr, CORE_ADDR physaddr,
+ 			   int len, int write);
+     CORE_ADDR (*lo_single_step_destination)(CORE_ADDR pc);

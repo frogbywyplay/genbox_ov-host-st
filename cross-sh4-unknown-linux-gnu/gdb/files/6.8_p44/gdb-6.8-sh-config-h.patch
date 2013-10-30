@@ -1,0 +1,17 @@
+Pick up some useful sh config.h defines when building sh*-linux.
+
+Signed-off-by: Chris Smith <chris.smith@st.com>
+
+Index: gdb-6.8/gdb/configure.ac
+===================================================================
+--- gdb-6.8.orig/gdb/configure.ac	2008-09-11 10:35:35.000000000 +0100
++++ gdb-6.8/gdb/configure.ac	2008-09-22 15:55:25.000000000 +0100
+@@ -1769,7 +1769,7 @@
+ AC_SUBST(GDBRESOPTS,$gdbresopts)
+ 
+ case "$target" in
+-sh*-superh-elf*)
++sh*-superh-elf* | sh*-*-linux* )
+   AC_DEFINE_UNQUOTED(GDBINIT_FILENAME, ".shgdbinit", [Name of the GDB initialization file. ])
+   AC_DEFINE_UNQUOTED(SHTDI_GDB_REGISTER_MAP, sh_gdb_to_shtdi_regno, [SHTDI to GDB register number mapping function. ])
+   AC_DEFINE(TARGET_HAS_RELOCATABLE_LIB, 1, [Define if the target supports relocatable libraries. ])

@@ -1,0 +1,165 @@
+Patch from Fred Riss to add support for 2.6.27 and 2.6.28 kernels.
+
+Signed-off-by: Chris Smith <chris.smith@st.com>
+
+Index: gdb-6.8/gdb/linux-awareness.c
+===================================================================
+--- gdb-6.8.orig/gdb/linux-awareness.c
++++ gdb-6.8/gdb/linux-awareness.c
+@@ -146,6 +146,7 @@ struct addr_info *addr_info;
+ 
+ DECLARE_ADDR(module_finalize);
+ DECLARE_ADDR(module_arch_cleanup);
++DECLARE_ADDR(module_address_lookup);
+ DECLARE_ADDR(modules);
+ DECLARE_ADDR(init_task);
+ DECLARE_ADDR(do_exit);
+@@ -749,11 +750,14 @@ layout_sections (bfd* file, struct lm_in
+ 	int ix = elf_elfheader(file)->e_shstrndx;
+ 	char *name = bfd_elf_string_from_elf_section (file, ix, s->sh_name);
+ 
+-	if (! strcmp (name, ".modinfo"))
++	/* HAS_ADDR(module_address_lookup) tests if CONFIG_KALLSYMS is
++	   defined. */
++	if (! strcmp (name, ".modinfo")
++	    || (detected_version >= V2_6_27 && ! strcmp (name, "__versions")))
+ 	    s->sh_flags &= ~SHF_ALLOC;
+-	else if (! strcmp (name, ".symtab"))
++	else if (! strcmp (name, ".symtab") && HAS_ADDR(module_address_lookup))
+ 	    s->sh_flags |= SHF_ALLOC;
+-	else if (! strcmp (name, ".strtab"))
++	else if (! strcmp (name, ".strtab") && HAS_ADDR(module_address_lookup))
+ 	    s->sh_flags |= SHF_ALLOC;
+     }
+ 
+@@ -769,6 +773,7 @@ layout_sections (bfd* file, struct lm_in
+ 		|| offsets[i] != ~0UL
+ 		|| strncmp (name, ".init", 5) == 0)
+ 		continue;
++	    DEBUG (MODULE, 4, "\t%s\n", name);
+ 	    offsets[i] = get_offset (&core_size, s) + lm_info->module_core;
+ 	}
+     }
+@@ -789,6 +794,7 @@ layout_sections (bfd* file, struct lm_in
+ 		|| offsets[i] != ~0UL
+ 		|| strncmp(name, ".init", 5) != 0)
+ 		continue;
++	    DEBUG (MODULE, 4, "\t%s\n", name);
+ 	    offsets[i] = get_offset(&init_size, s) + base;
+ 	}
+     }
+@@ -807,7 +813,9 @@ layout_sections (bfd* file, struct lm_in
+ 
+ 	    printf_filtered ("\
+ The module loaded by the kernel hasn't the same sections as the module\n\
+-the debugger has opened. Reading the section layout from kernel memory.\n");
++the debugger has opened. Reading the section layout from kernel memory\n\
++(%lx != %lx)\n",
++(unsigned long)lm_info->computed_core_size, (unsigned long)lm_info->core_size);
+ 
+ 	    elf_hdr = linux_awareness_ops->lo_first_pointer_arg_value ();
+ 	    elf_sechdrs = linux_awareness_ops->lo_second_pointer_arg_value ();
+@@ -1494,7 +1502,9 @@ create_sections (bfd *abfd, asection *se
+     if (! (flags & (SEC_ALLOC | SEC_DEBUGGING)))
+ 	return;
+ 
+-    if (strcmp (bfd_get_section_name (abfd, sectp), ".modinfo") == 0)
++    if (strcmp (bfd_get_section_name (abfd, sectp), ".modinfo") == 0
++	|| (detected_version >= V2_6_27
++	    && strcmp (bfd_get_section_name (abfd, sectp), "__versions") == 0))
+ 	return;
+ 
+     DEBUG (MODULE, 3, "Adding section %s to new file at %s.\n",
+@@ -1708,6 +1718,15 @@ make_temporary_bfd (bfd *abfd, struct lm
+ 	asection *hdrpp;
+ 	bfd_size_type amt;
+ 
++
++	int
++	    cmp_sections(const void* s1, const void* s2)
++	{
++	    asection **sec1 = (asection **)s1;
++	    asection **sec2 = (asection **)s2;
++	    return bfd_get_section_vma(abfd, *sec1) - bfd_get_section_vma(abfd, *sec2);
++	}
++
+ 	amt = sizeof (struct elf_segment_map);
+ 	amt += (bfd_count_sections(info.new)) * sizeof (asection *);
+ 	m = bfd_zalloc (info.new, amt);
+@@ -1719,6 +1738,8 @@ make_temporary_bfd (bfd *abfd, struct lm
+ 		m->sections[j++] = hdrpp;
+ 	m->count = j;
+ 
++	qsort(m->sections, m->count = j, sizeof(m->sections[0]), cmp_sections);
++
+ 	elf_tdata (info.new)->segment_map = m;
+     }
+     bfd_map_over_sections (info.old, set_section_contents, &info);
+@@ -5932,6 +5953,8 @@ static int linux_awareness_check()
+ 	break;
+     case V2_6_23:
+     case V2_6_24:
++    case V2_6_27:
++    case V2_6_28:
+ 	res =  HAS_FIELD(list_head,         next)
+ 	    && HAS_FIELD(pid_namespace,     last_pid)
+ 	    && HAS_FIELD(task_struct,       children)
+@@ -5951,6 +5974,7 @@ static void
+ linux_awareness_auto_activate (struct objfile *objf)
+ {
+     unsigned int i = 0;
++    char *release;
+ 
+     DEBUG (INIT, 2, "linux_awareness_auto_activate(%s)\n", objf ? objf->name : "null");
+ 
+@@ -5965,6 +5989,7 @@ linux_awareness_auto_activate (struct ob
+ 	|| ! linux_awareness_auto_activate_lookup_symbol ("linux_banner"))
+ 	return;
+ 
++    release = get_utsname_release_from_file ();
+     autodetection = LINUX_WITHOUT_DEBUGINFO;
+ 
+     if (lookup_minimal_symbol("Version_132619", NULL, NULL)) {
+@@ -5979,6 +6004,16 @@ linux_awareness_auto_activate (struct ob
+     } else if (lookup_minimal_symbol("Version_132632", NULL, NULL)) {
+ 	/* 2.6.24 version - For Nomadik ARM*/
+ 	detected_version = V2_6_24;
++	/* Starting with 2.6.27, the Version_xxx variables are only
++	   available without CONFIG_KALLSYMS, which we can't require. */
++    } else if (lookup_minimal_symbol("Version_132635", NULL, NULL)
++	       || (release != NULL && strncmp("2.6.27", release, 6))) {
++	/* 2.6.27 version - For Nomadik ARM*/
++	detected_version = V2_6_27;
++    } else if (lookup_minimal_symbol("Version_132636", NULL, NULL)
++	       || (release != NULL && strncmp("2.6.28", release, 6))) {
++	/* 2.6.28 version - For Nomadik ARM*/
++	detected_version = V2_6_28;
+     } else {
+ 	detected_version = VERSION_UNKNOWN;
+ 	if (! deprecated_call_command_chain)
+Index: gdb-6.8/gdb/linux-awareness.h
+===================================================================
+--- gdb-6.8.orig/gdb/linux-awareness.h
++++ gdb-6.8/gdb/linux-awareness.h
+@@ -103,6 +103,8 @@ extern enum stlinux_version {
+     V2_6_17,
+     V2_6_23,
+     V2_6_24,
++    V2_6_27,
++    V2_6_28,
+     VERSION_UNKNOWN
+ } detected_version;
+ 
+Index: gdb-6.8/gdb/linux-awareness-arm.c
+===================================================================
+--- gdb-6.8.orig/gdb/linux-awareness-arm.c
++++ gdb-6.8/gdb/linux-awareness-arm.c
+@@ -518,6 +518,8 @@ static int arm_linux_awareness_check()
+ 
+     switch (detected_version) {
+     case V2_6_24:
++    case V2_6_27:
++    case V2_6_28:
+ 	res =  HAS_FIELD(mm_struct,   pgd)
+ 	    && HAS_FIELD(task_struct, stack)
+ 	    && HAS_FIELD(task_struct, thread)

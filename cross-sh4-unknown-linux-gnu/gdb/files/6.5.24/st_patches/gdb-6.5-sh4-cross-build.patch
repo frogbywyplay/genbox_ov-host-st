@@ -1,0 +1,46 @@
+Index: gdb-6.5/gdb/configure.tgt
+===================================================================
+--- gdb-6.5.orig/gdb/configure.tgt	2007-09-18 17:03:26.000000000 +0100
++++ gdb-6.5/gdb/configure.tgt	2007-09-18 17:06:05.000000000 +0100
+@@ -178,8 +178,7 @@
+ sh*-*-pe)		gdb_target=wince ;;
+ sh-*-coff*)		gdb_target=embed ;;
+ sh-*-elf*)		gdb_target=embed ;;
+-# FIXME should that be sh*-*-linux*, perhaps?
+-sh-*-linux*)		gdb_target=linux
++sh*-*-linux*)		gdb_target=linux
+ 			build_gdbserver=yes
+ 			;;
+ sh*-*-netbsdelf* | sh*-*-knetbsd*-gnu)
+Index: gdb-6.5/sim/configure.ac
+===================================================================
+--- gdb-6.5.orig/sim/configure.ac	2006-05-05 18:11:19.000000000 +0100
++++ gdb-6.5/sim/configure.ac	2007-09-18 17:06:05.000000000 +0100
+@@ -110,7 +110,7 @@
+ 	   testsuite=yes
+ 	   common=yes
+ 	   ;;
+-       sh-*-*)
++       sh*-*-*)
+            AC_CONFIG_SUBDIRS(sh)
+ 	   testsuite=yes
+ 	   common=yes
+Index: gdb-6.5/gdb/config/sh/linux.mt
+===================================================================
+--- gdb-6.5.orig/gdb/config/sh/linux.mt	2005-04-27 21:48:25.000000000 +0100
++++ gdb-6.5/gdb/config/sh/linux.mt	2007-09-18 17:06:25.000000000 +0100
+@@ -1,8 +1,11 @@
+ # Target: GNU/Linux Super-H
+ TDEPFILES= sh-tdep.o sh64-tdep.o sh-linux-tdep.o \
+ 	monitor.o sh3-rom.o remote-e7000.o ser-e7kpc.o dsrec.o \
+-	solib.o solib-svr4.o symfile-mem.o
++	shtdi.o solib.o solib-svr4.o symfile-mem.o linux-awareness.o \
++	linux-awareness-sh4.o
+ DEPRECATED_TM_FILE= tm-linux.h
+ 
+-SIM_OBS = remote-sim.o
+-SIM = ../sim/sh/libsim.a
++SIM_OBS =
++SIM =
++
++LOADLIBES = -ldl

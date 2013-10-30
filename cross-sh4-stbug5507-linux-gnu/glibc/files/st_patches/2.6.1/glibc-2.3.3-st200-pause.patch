@@ -1,0 +1,12 @@
+--- /dev/null	2003-09-15 14:02:32.000000000 +0100
++++ libc/sysdeps/unix/sysv/linux/st200/pause.c	2006-05-23 14:02:34.000000000 +0100
+@@ -0,0 +1 @@
++#include <sysdeps/posix/pause.c>
+--- libc/nptl/sysdeps/st200/Makefile.orig	2006-05-23 15:19:25.000000000 +0100
++++ libc/nptl/sysdeps/st200/Makefile	2006-05-23 15:20:09.000000000 +0100
+@@ -22,4 +22,5 @@
+ 
+ ifeq ($(subdir),nptl)
+ CFLAGS-pt-initfini.c += -CG:emit_bb_freqs=0 -fno-verbose-asm
++libpthread-routines += ptw-sigprocmask
+ endif

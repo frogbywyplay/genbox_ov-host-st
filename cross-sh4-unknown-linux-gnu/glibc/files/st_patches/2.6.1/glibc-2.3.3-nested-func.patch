@@ -1,0 +1,249 @@
+diff -Naru --exclude CVS glibc/iconv/iconvconfig.c glibc-carl/iconv/iconvconfig.c
+--- glibc/iconv/iconvconfig.c	2004-05-17 19:37:11.000000000 +0100
++++ glibc-carl/iconv/iconvconfig.c	2005-03-01 10:57:26.000000000 +0000
+@@ -989,6 +989,32 @@
+                               module name offset
+                          (following last entry with step count 0)
+ */
++
++/* Function to insert the names.  */
++static struct hash_entry *name_insert_hash_table;
++static  size_t name_insert_hash_size;
++static void name_insert (const void *nodep, VISIT value, int level)
++{
++  struct name *name;
++  unsigned int idx;
++  unsigned int hval2;
++  
++  if (value != leaf && value != postorder)
++    return;
++  
++  name = *(struct name **) nodep;
++  idx = name->hashval % name_insert_hash_size;
++  hval2 = 1 + name->hashval % (name_insert_hash_size - 2);
++  
++  while (name_insert_hash_table[idx].string_offset != 0)
++    if ((idx += hval2) >= name_insert_hash_size)
++      idx -= name_insert_hash_size;
++  
++  name_insert_hash_table[idx].string_offset = strtaboffset (name->strent);
++  
++  assert (name->module_idx != -1);
++  name_insert_hash_table[idx].module_idx = name->module_idx;
++}
+ static int
+ write_output (void)
+ {
+@@ -1010,6 +1036,7 @@
+ 		+ strlen (".XXXXXX")];
+   char finalname[prefix_len + sizeof (GCONV_MODULES_CACHE)];
+ 
++#if 0
+   /* Function to insert the names.  */
+   static void name_insert (const void *nodep, VISIT value, int level)
+     {
+@@ -1033,7 +1060,7 @@
+       assert (name->module_idx != -1);
+       hash_table[idx].module_idx = name->module_idx;
+     }
+-
++#endif
+   /* Open the output file.  */
+   assert (GCONV_MODULES_CACHE[0] == '/');
+   strcpy (stpcpy (mempcpy (tmpfname, prefix, prefix_len), GCONV_MODULES_CACHE),
+@@ -1055,6 +1082,8 @@
+   hash_table = (struct hash_entry *) xcalloc (hash_size,
+ 					      sizeof (struct hash_entry));
+   /* Fill the hash table.  */
++  name_insert_hash_size = hash_size;
++  name_insert_hash_table = hash_table;
+   twalk (names, name_insert);
+ 
+   /* Create the section for the module list.  */
+diff -Naru --exclude CVS glibc/locale/programs/ld-collate.c glibc-carl/locale/programs/ld-collate.c
+--- glibc/locale/programs/ld-collate.c	2003-06-13 21:50:24.000000000 +0100
++++ glibc-carl/locale/programs/ld-collate.c	2005-03-01 10:57:31.000000000 +0000
+@@ -1165,6 +1165,7 @@
+ 		{
+ 		  struct element_t *elem;
+ 		  size_t namelen;
++		  void *ptr;
+ 
+ 		  /* I don't this this can ever happen.  */
+ 		  assert (seq->name != NULL);
+@@ -1177,7 +1178,6 @@
+ 		  /* Now we are ready to insert the new value in the
+ 		     sequence.  Find out whether the element is
+ 		     already known.  */
+-		  void *ptr;
+ 		  if (find_entry (&collate->seq_table, seq->name, namelen,
+ 				  &ptr) != 0)
+ 		    {
+@@ -1331,12 +1331,12 @@
+ 	      struct charseq *seq;
+ 	      uint32_t wc;
+ 	      int cnt;
++	      void *ptr;
+ 
+ 	      /* Generate the the name.  */
+ 	      sprintf (buf + preflen, base == 10 ? "%ld" : "%lX", from);
+ 
+ 	      /* Look whether this name is already defined.  */
+-	      void *ptr;
+ 	      if (find_entry (&collate->seq_table, buf, symlen, &ptr) == 0)
+ 		{
+ 		  /* Copy back the result.  */
+@@ -1937,6 +1937,127 @@
+ }
+ 
+ 
++static struct obstack *add_to_tablewc_weightpool;
++static struct locale_collate_t *add_to_tablewc_collate;
++static struct collidx_table *add_to_tablewc_tablewc;
++static struct obstack *add_to_tablewc_extrapool;
++static struct obstack *add_to_tablewc_indirectpool;
++
++void add_to_tablewc (uint32_t ch, struct element_t *runp)
++{
++  if (runp->wcnext == NULL && runp->nwcs == 1)
++    {
++      int32_t weigthidx = output_weightwc (add_to_tablewc_weightpool, add_to_tablewc_collate, runp);
++      collidx_table_add (add_to_tablewc_tablewc, ch, weigthidx);
++    }
++  else
++    {
++      /* As for the singlebyte table, we recognize sequences and
++	 compress them.  */
++      struct element_t *lastp;
++      
++      collidx_table_add (add_to_tablewc_tablewc, ch,
++			 -(obstack_object_size (add_to_tablewc_extrapool) / sizeof (uint32_t)));
++      
++      do
++	{
++	  /* Store the current index in the weight table.  We know that
++	     the current position in the `add_to_tablewc_extrapool' is aligned on a
++	     32-bit address.  */
++	  int32_t weightidx;
++	  int added;
++	  
++	  /* Find out wether this is a single entry or we have more than
++	     one consecutive entry.  */
++	  if (runp->wcnext != NULL
++	      && runp->nwcs == runp->wcnext->nwcs
++	      && wmemcmp ((wchar_t *) runp->wcs,
++			  (wchar_t *)runp->wcnext->wcs,
++			  runp->nwcs - 1) == 0
++	      && (runp->wcs[runp->nwcs - 1]
++		  == runp->wcnext->wcs[runp->nwcs - 1] + 1))
++	    {
++	      int i;
++	      struct element_t *series_startp = runp;
++	      struct element_t *curp;
++	      
++	      /* Now add first the initial byte sequence.  */
++	      added = (1 + 1 + 2 * (runp->nwcs - 1)) * sizeof (int32_t);
++	      if (sizeof (int32_t) == sizeof (int))
++		obstack_make_room (add_to_tablewc_extrapool, added);
++	      
++	      /* More than one consecutive entry.  We mark this by having
++		 a negative index into the indirect table.  */
++	      obstack_int32_grow_fast (add_to_tablewc_extrapool,
++				       -(obstack_object_size (add_to_tablewc_indirectpool)
++					 / sizeof (int32_t)));
++	      obstack_int32_grow_fast (add_to_tablewc_extrapool, runp->nwcs - 1);
++	      
++	      do
++		runp = runp->wcnext;
++	      while (runp->wcnext != NULL
++		     && runp->nwcs == runp->wcnext->nwcs
++		     && wmemcmp ((wchar_t *) runp->wcs,
++				 (wchar_t *)runp->wcnext->wcs,
++				 runp->nwcs - 1) == 0
++		     && (runp->wcs[runp->nwcs - 1]
++			 == runp->wcnext->wcs[runp->nwcs - 1] + 1));
++	      
++	      /* Now walk backward from here to the beginning.  */
++	      curp = runp;
++	      
++	      for (i = 1; i < runp->nwcs; ++i)
++		obstack_int32_grow_fast (add_to_tablewc_extrapool, curp->wcs[i]);
++	      
++	      /* Now find the end of the consecutive sequence and
++		 add all the indeces in the indirect pool.  */
++	      do
++		{
++		  weightidx = output_weightwc (add_to_tablewc_weightpool, add_to_tablewc_collate,
++					       curp);
++		  obstack_int32_grow (add_to_tablewc_indirectpool, weightidx);
++		  
++		  curp = curp->wclast;
++		}
++	      while (curp != series_startp);
++	      
++	      /* Add the final weight.  */
++	      weightidx = output_weightwc (add_to_tablewc_weightpool, add_to_tablewc_collate, curp);
++	      obstack_int32_grow (add_to_tablewc_indirectpool, weightidx);
++	      
++	      /* And add the end byte sequence.  Without length this
++		 time.  */
++	      for (i = 1; i < curp->nwcs; ++i)
++		obstack_int32_grow (add_to_tablewc_extrapool, curp->wcs[i]);
++	    }
++	  else
++	    {
++	      /* A single entry.  Simply add the index and the length and
++		 string (except for the first character which is already
++		 tested for).  */
++	      int i;
++	      
++	      /* Output the weight info.  */
++	      weightidx = output_weightwc (add_to_tablewc_weightpool, add_to_tablewc_collate, runp);
++	      
++	      added = (1 + 1 + runp->nwcs - 1) * sizeof (int32_t);
++	      if (sizeof (int) == sizeof (int32_t))
++		obstack_make_room (add_to_tablewc_extrapool, added);
++	      
++	      obstack_int32_grow_fast (add_to_tablewc_extrapool, weightidx);
++	      obstack_int32_grow_fast (add_to_tablewc_extrapool, runp->nwcs - 1);
++	      for (i = 1; i < runp->nwcs; ++i)
++		obstack_int32_grow_fast (add_to_tablewc_extrapool, runp->wcs[i]);
++	    }
++	  
++	  /* Next entry.  */
++	  lastp = runp;
++	  runp = runp->wcnext;
++	}
++      while (runp != NULL);
++    }
++}
++
+ void
+ collate_output (struct localedef_t *locale, const struct charmap_t *charmap,
+ 		const char *output_path)
+@@ -2294,6 +2415,7 @@
+      the table.  In case we have more than one sequence starting with
+      the same byte we have to use extra indirection.  */
+   {
++#if 0
+     auto void add_to_tablewc (uint32_t ch, struct element_t *runp);
+ 
+     void add_to_tablewc (uint32_t ch, struct element_t *runp)
+@@ -2410,11 +2532,16 @@
+ 	    while (runp != NULL);
+ 	  }
+       }
+-
++#endif
+     tablewc.p = 6;
+     tablewc.q = 10;
+     collidx_table_init (&tablewc);
+ 
++    add_to_tablewc_weightpool = &weightpool;
++    add_to_tablewc_collate = collate;
++    add_to_tablewc_tablewc = &tablewc;
++    add_to_tablewc_extrapool = &extrapool;
++    add_to_tablewc_indirectpool = &indirectpool;
+     wchead_table_iterate (&collate->wcheads, add_to_tablewc);
+ 
+     collidx_table_finalize (&tablewc);

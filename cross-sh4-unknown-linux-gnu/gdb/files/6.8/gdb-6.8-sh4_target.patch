@@ -1,0 +1,19 @@
+The FSF source almost but not quite supports sh4-unknown-linux-gnu targets out
+of the box. This patch replaces a FIXME with the fix.
+
+Signed-off-by: Chris Smith <chris.smith@st.com>
+
+Index: gdb-6.8/gdb/configure.tgt
+===================================================================
+--- gdb-6.8.orig/gdb/configure.tgt	2008-09-19 10:53:00.000000000 +0100
++++ gdb-6.8/gdb/configure.tgt	2008-09-19 10:55:08.000000000 +0100
+@@ -367,8 +367,7 @@
+ 	gdb_target_obs="score-tdep.o"
+ 	;;
+ 
+-# FIXME should that be sh*-*-linux*, perhaps?
+-sh-*-linux*)
++sh*-*-linux*)
+ 	# Target: GNU/Linux Super-H
+ 	gdb_target_obs="sh-tdep.o sh64-tdep.o sh-linux-tdep.o monitor.o \
+ 			dsrec.o solib.o solib-svr4.o symfile-mem.o"

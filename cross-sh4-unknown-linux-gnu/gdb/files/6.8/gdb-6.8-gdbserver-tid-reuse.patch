@@ -1,0 +1,85 @@
+2006-04-04  Chris Smith  <chris.smith@st.com>
+
+The NPTL quickly re-uses the thread IDs of threads that have exited. Sometimes,
+when there is a high throughput of threads, it is possible for gdbserver to 
+encounter a thread being created with a reused ID before it sees the first
+thread exit. At present, it refuses to attach to the second thread which causes
+big problems (see Bugzilla #225).
+
+This patch checks the LWP of threads that it believes it already knows about to
+spot this case and deal with it properly.
+
+Index: gdb-6.8/gdb/gdbserver/linux-low.c
+===================================================================
+--- gdb-6.8.orig/gdb/gdbserver/linux-low.c	2008-09-11 10:35:26.000000000 +0100
++++ gdb-6.8/gdb/gdbserver/linux-low.c	2008-09-19 10:39:48.000000000 +0100
+@@ -611,8 +611,11 @@
+   else if (*childp == NULL)
+     goto retry;
+ 
+-  (*childp)->stopped = 1;
+-  (*childp)->pending_is_breakpoint = 0;
++  if (*childp != NULL)
++    {
++      (*childp)->stopped = 1;
++      (*childp)->pending_is_breakpoint = 0;
++    }
+ 
+   (*childp)->last_status = *wstatp;
+ 
+@@ -683,7 +686,19 @@
+       linux_wait_for_process (&event_child, &wstat);
+ 
+       if (event_child == NULL)
+-	error ("event from unknown child");
++	{
++	  if (using_threads
++              && (!WIFSTOPPED (wstat)))
++	    {
++	      /* We have just been notified that a thread has exited. The
++		 fact that the corresponding process has gone means that we
++                 have already spotted this and dealt with it. Wait for
++		 another event. */
++	      continue;
++	    }
++          else
++	    error ("event from unknown child");
++	}
+ 
+       current_inferior = (struct thread_info *)
+ 	find_inferior_id (&all_threads, event_child->lwpid);
+Index: gdb-6.8/gdb/gdbserver/thread-db.c
+===================================================================
+--- gdb-6.8.orig/gdb/gdbserver/thread-db.c	2008-09-11 10:35:26.000000000 +0100
++++ gdb-6.8/gdb/gdbserver/thread-db.c	2008-09-19 10:39:48.000000000 +0100
+@@ -296,7 +296,29 @@
+   inferior = (struct thread_info *) find_inferior_id (&all_threads,
+ 						      ti_p->ti_lid);
+   if (inferior != NULL)
+-    return;
++    {
++      /* We already know about a thread with this tid */
++      process = (struct process_info *)
++          find_inferior_id (&all_processes, ti_p->ti_lid);
++
++      if (process == NULL)
++        {
++          /* We are not attached to this LWP, so the thread id has been
++             reused. Remove references to the old thread. */
++          if (debug_threads)
++            fprintf(stderr, "Found reused thread id %d. Removing process %d\n",
++                    ti_p->ti_tid, ti_p->ti_lid);
++
++          process = get_thread_process(inferior);
++          dead_thread_notify(process->tid);
++          remove_inferior(&all_processes, &process->head);
++          free(process);
++          remove_thread(inferior);
++
++	}
++      else
++        return;
++    }
+ 
+   if (debug_threads)
+     fprintf (stderr, "Attaching to thread %ld (LWP %d)\n",

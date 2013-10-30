@@ -1,0 +1,11 @@
+diff -Naur gcc-4.2.1-compteam/gcc/config/sh/linux.h gcc-4.2.1-stm/gcc/config/sh/linux.h
+--- gcc-4.2.1-compteam/gcc/config/sh/linux.h	2007-08-10 10:01:31.000000000 +0100
++++ gcc-4.2.1-stm/gcc/config/sh/linux.h	2007-08-24 11:49:19.000000000 +0100
+@@ -58,6 +58,7 @@
+    %{!static: \
+      %{rdynamic:-export-dynamic} \
+      %{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER "}} \
++   --hash-style=gnu \
+    %{static:-static}"
+ 
+ /* Output assembler code to STREAM to call the profiler.  */

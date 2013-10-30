@@ -1,0 +1,28 @@
+--- linux-st231-2.6.11.12_stm22-19.orig/include/asm-st200/ptrace.h
++++ linux-st231-2.6.11.12_stm22-19/include/asm-st200/ptrace.h
+@@ -126,11 +126,19 @@ void st200_show_regs(struct pt_regs* reg
+ /* Register numbers in the ptrace system call interface */
+ 
+ #define PT_PC		0
+-#define PT_R0		1
++#define PT_PSW	      	1
++#define PT_R0		2
+ #define PT_R(x)		((x)+PT_R0)
+-#define PT_B(x)		((x)+65)
+-#define PT_PSW		73
+-#define PT_DEBUG(x)	((x)+74)
++#define PT_B(x)		((x)+PT_R(63)+1)
++#define PT_GP_NREGS     74
++#define PT_DEBUG(x)	((x)+PT_GP_NREGS)
+ #define PT_TRACE	80
+ 
++#ifdef __KERNEL__
++/* Allows entire register state to be updated in one go*/
++#define PTRACE_GETREGS            12
++#define PTRACE_SETREGS            13
++#endif
++
++
+ #endif /* _ASM_ST200_PTRACE_H */
+Index: linux-st231-2.6.11.12_stm22-19/arch/st200/kernel/ptrace.c
+===================================================================

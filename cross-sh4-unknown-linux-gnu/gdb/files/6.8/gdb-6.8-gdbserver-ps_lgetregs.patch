@@ -1,0 +1,45 @@
+This is an attempt at a portable implementation of ps_lgetregs() which
+doesn't rely on HAVE_REGSETS.
+So far it has only been tested on SH.
+
+Stuart Menefy <stuart.menefy@st.com>
+20th June 2005
+
+Ported to gdb 6.4 by Chris Smith <chris.smith@st.com> 2006-08-14
+
+Index: gdb-6.8/gdb/gdbserver/proc-service.c
+===================================================================
+--- gdb-6.8.orig/gdb/gdbserver/proc-service.c	2008-09-11 10:35:26.000000000 +0100
++++ gdb-6.8/gdb/gdbserver/proc-service.c	2008-09-19 10:57:11.000000000 +0100
+@@ -98,7 +98,7 @@
+ ps_err_e
+ ps_lgetregs (gdb_ps_prochandle_t ph, lwpid_t lwpid, prgregset_t gregset)
+ {
+-#ifdef HAVE_REGSETS
++  int i;
+   struct process_info *process;
+   struct thread_info *reg_inferior, *save_inferior;
+ 
+@@ -112,13 +112,19 @@
+   current_inferior = reg_inferior;
+ 
+   the_target->fetch_registers (0);
++#ifdef HAVE_REGSETS
+   gregset_info()->fill_function (gregset);
++#else
++  for (i = 0; i < ELF_NGREG; i++) {
++    int *regmap = the_low_target.regmap;
++    if (regmap[i] != -1) {
++      collect_register (i, ((char *) gregset) + regmap[i]);
++    }
++  }
++#endif
+ 
+   current_inferior = save_inferior;
+   return PS_OK;
+-#else
+-  return PS_ERR;
+-#endif
+ }
+ 
+ /* Set the general registers of LWP LWPID within the target process PH

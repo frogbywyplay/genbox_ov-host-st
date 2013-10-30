@@ -1,0 +1,287 @@
+Patch from Frederic Riss <frederic.riss@st.com>, which has the linux awareness
+layer look in /lib/modules in the target filesystem for unknown modules.
+
+See Bugzilla #1435.
+
+Signed-off-by: Chris Smith <chris.smith@st.com>
+Index: gdb-6.5/gdb/linux-awareness.c
+===================================================================
+--- gdb-6.5.orig/gdb/linux-awareness.c	2007-10-08 15:42:05.000000000 +0100
++++ gdb-6.5/gdb/linux-awareness.c	2007-10-08 15:42:13.000000000 +0100
+@@ -101,6 +101,15 @@
+ static char **module_search_path;
+ static char **target_root_prefix;
+ 
++static char *utsname_release;
++struct depmod_cache {
++    char *filename;
++    char *modname; /* points into filename */
++};
++static struct depmod_cache *depmod_cache;
++static int    depmod_cache_length, depmod_cache_capacity;
++static time_t depmod_cache_timestamp;
++
+ static char linux_awareness_doc[] = "";
+ 
+ struct target_ops linux_aware_ops;
+@@ -189,7 +198,8 @@
+     SYSCTL_OVERCOMMIT_RATIO,
+     VMLIST,
+     NR_HUGE_PAGES,
+-    LAST_PID
++    LAST_PID,
++    SYSTEM_UTSNAME
+ };
+ 
+ struct addr_info linux_addrs[] = {
+@@ -229,6 +239,7 @@
+     [VMLIST]                   = { "vmlist" },
+     [NR_HUGE_PAGES]            = { "nr_huge_pages" },
+     [LAST_PID]                 = { "last_pid" },
++    [SYSTEM_UTSNAME]           = { "system_utsname" },
+     {0}
+ };
+ 
+@@ -322,7 +333,8 @@
+     PAGE_STATE__NR_SLAB,
+     PAGE_STATE__NR_PAGE_TABLE_PAGES,
+     VM_STRUCT__NEXT,
+-    VM_STRUCT__SIZE
++    VM_STRUCT__SIZE,
++    NEW_UTSNAME__RELEASE
+ };
+ 
+ struct field_info linux_fields[] = {
+@@ -417,6 +429,7 @@
+     [PAGE_STATE__NR_PAGE_TABLE_PAGES] = { "page_state","nr_page_table_pages" },
+     [VM_STRUCT__NEXT]             = { "vm_struct",        "next"           },
+     [VM_STRUCT__SIZE]             = { "vm_struct",        "size"           },
++    [NEW_UTSNAME__RELEASE]        = { "new_utsname",      "release"        },
+     {0}
+ };
+ 
+@@ -2159,6 +2172,162 @@
+     return list ? list->info : NULL;;
+ }
+ 
++static void
++free_depmod_cache ()
++{
++    int i;
++
++    for (i = 0; i < depmod_cache_length; ++i)
++	xfree(depmod_cache[i].filename);
++
++    xfree(depmod_cache);
++    depmod_cache_length = depmod_cache_capacity = 0;
++    depmod_cache = NULL;
++}
++
++static void
++grow_depmod_cache ()
++{
++    if (depmod_cache == NULL) {
++	depmod_cache = xmalloc (64*sizeof(struct depmod_cache));
++	depmod_cache_capacity = 64;
++	return;
++    }
++
++    depmod_cache_capacity *= 2;
++    depmod_cache = xrealloc(depmod_cache,
++			    depmod_cache_capacity*sizeof(struct depmod_cache));
++    if (depmod_cache == NULL)
++	error ("grow_depmod_cache (): your system ran out of memory.");
++}
++
++static void
++build_depmod_cache ()
++{
++    struct stat depmod_stat;
++    char depmod_file[PATH_MAX];
++    FILE *file;
++    size_t n;
++    struct depmod_cache *cache;
++    char *ptr;
++
++    xsnprintf (depmod_file, PATH_MAX, "%s/lib/modules/%s/modules.dep",
++	       *target_root_prefix, utsname_release);
++
++    if (stat (depmod_file, &depmod_stat) < 0
++	|| depmod_stat.st_mtime == depmod_cache_timestamp)
++	return;
++
++    file = fopen (depmod_file, "r");
++    if (file == NULL)
++	return;
++
++    depmod_cache_timestamp = depmod_stat.st_mtime;
++
++    do {
++	if (depmod_cache_length >= depmod_cache_capacity)
++	    grow_depmod_cache ();
++
++	cache = depmod_cache + depmod_cache_length;
++	cache->filename = NULL;
++	if (getline (&cache->filename, &n, file) < 0)
++	    break;
++
++	ptr = strchr(cache->filename, ':');
++	if (ptr == NULL)
++	    continue;
++	*ptr = '\0';
++	while (*ptr != '/' && ptr != cache->filename)
++	    --ptr;
++
++	cache->modname = ptr+1;
++	++depmod_cache_length;
++    } while (1);
++}
++
++static int
++lookup_module_dep (const char *string,
++		   int mode, int prot,
++		   char **opened)
++{
++    int i;
++    const char *found = NULL;
++    build_depmod_cache ();
++
++    for (i = 0; i < depmod_cache_length; ++i) {
++	if (strcmp (string, depmod_cache[i].modname))
++	    continue;
++	/* skip initial '/' in filename */
++	found = depmod_cache[i].filename+1;
++	break;
++    }
++
++    if (found == NULL)
++	return -1;
++
++    return openp (*target_root_prefix, 0, found, mode, prot, opened);
++}
++
++static char *
++get_utsname_release_from_file ()
++{
++    static char release[256];
++    int i = 0;
++    CORE_ADDR release_addr;
++    asection* data;
++
++    if (!HAS_ADDR(SYSTEM_UTSNAME) || !HAS_FIELD(NEW_UTSNAME__RELEASE))
++	return NULL;
++
++    release_addr = ADDR (SYSTEM_UTSNAME) + FIELD_OFFSET(NEW_UTSNAME__RELEASE);
++    data = bfd_get_section_by_name (exec_bfd, ".rodata");
++
++    if (data != NULL
++	&& release_addr >= bfd_get_section_vma (exec_bfd, data)
++	&& release_addr < bfd_get_section_vma (exec_bfd,data)
++                          + bfd_get_section_size(data))
++	goto section_found;
++
++    data = bfd_get_section_by_name (exec_bfd, ".data");
++
++    if (data == NULL
++	|| release_addr < bfd_get_section_vma (exec_bfd, data)
++	|| release_addr >= bfd_get_section_vma (exec_bfd,data)
++	                   + bfd_get_section_size(data))
++	return NULL;
++
++ section_found:
++    bfd_seek (exec_bfd, data->filepos + release_addr
++	                - bfd_get_section_vma (exec_bfd, data), SEEK_SET);
++
++    while (i<256) {
++	bfd_bread (release + i, 1, exec_bfd);
++	if (release[i++] == '\0')
++	    break;
++    }
++
++    return release;
++}
++
++static int
++module_openp (const char *path, int opts, const char *string,
++	      int mode, int prot,
++	      char **filename_opened)
++{
++    sanitize_target_root_prefix();
++    if (utsname_release == NULL || **target_root_prefix == '\0')
++	return openp (path, opts, string, mode, prot, filename_opened);
++
++    /* Try first in the module_search_path */
++    int res = openp (path, opts, string, mode, prot, filename_opened);
++
++    if (res >= 0)
++	return res;
++
++    /* Now look for modules.dep */
++    return lookup_module_dep(string, mode, prot, filename_opened);
++}
++
+ /* This function implements the walking of the decision tree
+    representing all the possible names for the module names FILENAME. */
+ static int
+@@ -2200,8 +2369,8 @@
+ 
+     if (! nb_chars) {
+ 	xfree (tree);
+-	return openp (*module_search_path, OPF_TRY_CWD_FIRST,
+-		      filename, O_RDONLY, 0, temp_pathname);
++	return module_openp (*module_search_path, OPF_TRY_CWD_FIRST,
++			     filename, O_RDONLY, 0, temp_pathname);
+     }
+ 
+     while (level >= 0) {
+@@ -2213,8 +2382,8 @@
+ 	}
+ 
+ 	if (level == nb_chars) {
+-	    int res = openp (*module_search_path, OPF_TRY_CWD_FIRST,
+-			     filename, O_RDONLY, 0, temp_pathname);
++	    int res = module_openp (*module_search_path, OPF_TRY_CWD_FIRST,
++				    filename, O_RDONLY, 0, temp_pathname);
+ 	    if (res >= 0) {
+ 		xfree (tree);
+ 		return res;
+@@ -5766,6 +5935,9 @@
+ 
+     set_main_name ("start_kernel");
+ 
++    free_depmod_cache ();
++    utsname_release = get_utsname_release_from_file ();
++
+     /* Add single-stepping if needed */
+     if (!SOFTWARE_SINGLE_STEP_P ()
+ 	&& linux_awareness_ops->lo_single_step_destination) {
+Index: gdb-6.5/gdb/linux-awareness-sh4.c
+===================================================================
+--- gdb-6.5.orig/gdb/linux-awareness-sh4.c	2007-10-08 15:41:49.000000000 +0100
++++ gdb-6.5/gdb/linux-awareness-sh4.c	2007-10-08 15:42:13.000000000 +0100
+@@ -67,7 +67,8 @@
+     WORK_RESCHED,
+     MEM_MAP,
+     CONTIG_PAGE_DATA,
+-    SWAPPER_SPACE
++    SWAPPER_SPACE,
++    SYSTEM_UTSNAME
+ };
+ 
+ struct addr_info sh4_linux_addrs[] = {
+@@ -89,6 +90,7 @@
+     [MEM_MAP]                 = { "mem_map" },
+     [CONTIG_PAGE_DATA]        = { "contig_page_data" },
+     [SWAPPER_SPACE]           = { "swapper_space" },
++    [SYSTEM_UTSNAME]          = { "system_utsname" },
+     {0}
+ };
+ 
+@@ -254,6 +256,7 @@
+     { "page_state",        "nr_page_table_pages", 12, 4 },
+     { "vm_struct",         "next",           24,   4 },
+     { "vm_struct",         "size",           4,    4 },
++    { "new_utsname",       "release",        130,  65 },
+     {0}
+ };
+ 

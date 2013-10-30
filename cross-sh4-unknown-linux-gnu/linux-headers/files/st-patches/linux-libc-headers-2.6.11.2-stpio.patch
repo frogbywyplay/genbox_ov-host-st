@@ -1,0 +1,81 @@
+diff -Naur linux-libc-headers-2.6.11.2.orig/include/linux/stpio.h linux-libc-headers-2.6.11.2/include/linux/stpio.h
+--- linux-libc-headers-2.6.11.2.orig/include/linux/stpio.h	2006-05-29 09:19:53.961961000 +0000
++++ linux-libc-headers-2.6.11.2/include/linux/stpio.h	2006-05-29 09:29:18.738960000 +0000
+@@ -1,5 +1,5 @@
+ /*
+- * include/linux/st_pio.h
++ * include/linux/stpio.h
+  *
+  * Copyright (c) 2004 STMicroelectronics Limited
+  * Author: Stuart Menefy <stuart.menefy@st.com>
+@@ -11,12 +11,16 @@
+  * routine for when input pins change state.
+  */
+ 
+-#ifndef _LINUX_ST_PIO_H_
+-#define _LINUX_ST_PIO_H_ 1
++#ifndef _LINUX_STPIO_H_
++#define _LINUX_STPIO_H_ 1
+ 
++#include <linux/ioctl.h>
+ 
+ /* Pin configuration constants */
+-
++/* Note that behaviour for modes 0, 6 and 7 differ between the ST40STB1
++ * datasheet (implementation restrictions appendix), and the ST40
++ * architectural defintions.
++ */
+ #define STPIO_NONPIO		0	/* Non-PIO function (ST40 defn) */
+ #define STPIO_BIDIR_Z1     	0	/* Input weak pull-up (arch defn) */
+ #define STPIO_BIDIR		1	/* Bidirectonal open-drain */
+@@ -27,35 +31,19 @@
+ #define STPIO_ALT_OUT		6	/* Alt output push-pull (arch defn) */
+ #define STPIO_ALT_BIDIR		7	/* Alt bidir open drain (arch defn) */
+ 
+-struct stpio_pin;	
+-
+-/* Request and release exclusive use of a PIO pin */
+-struct stpio_pin* stpio_request_pin(unsigned portno, unsigned pinno,
+-				    const char* name, int direction);
+-void stpio_free_pin(struct stpio_pin* pin);
+-
+-/* Get, set value */
+-void stpio_set_pin(struct stpio_pin* pin, unsigned int value);
+-unsigned int stpio_get_pin(struct stpio_pin* pin);
+-
+-int __init stpio_init(unsigned long base_addr,int nports);
+-
+-
+-/* Little macro to construct bitmask for contiguous ranges of bits */
+-#define SYSCONFIG_BITMASK(t,b) (((unsigned)(1U << (((t)-(b)+1)))-1)  << (b))
+-#define SYSCONFIG_MASK(mask) SYSCONFIG_BITMASK(1?mask,0?mask)
+-
+-#define SYSCONFIG_BANK(n) ((n)>>24)
+-#define SYSCONFIG_MAGIC(bank,offset) ( ((bank)<<24)|(offset)/4 )
+-
+-/* Returns zero on success */
+-int __init stsyconfig_int(unsigned long base_addr,int nregs,char *name);
+-
+-/*
+- * The value is shifted up by the lowest bit in the mask 
+- * Use the above macros to defined bit fields.
+- */
+-
+-int stsysconfig_set(int regno,unsigned mask,unsigned value);
++struct pin_s 
++{
++    unsigned portno;	/* PIO port number */
++    unsigned pinno;	/* PIO pin number */
++    char name[16];	/* Driver name */
++    int direction;	/* Pin configuration constant */
++};
++
++#define STPIO_IOCTL_BASE	'p'
++#define STPIO_REQUEST_PIN	_IOW(STPIO_IOCTL_BASE, 0xA0, struct pin_s)
++#define STPIO_GET_PIN		_IOR(STPIO_IOCTL_BASE, 0xA1, unsigned)
++#define STPIO_SET_PIN		_IOW(STPIO_IOCTL_BASE, 0xA2, unsigned)
++#define STPIO_ENABLE_IRQ	_IOW(STPIO_IOCTL_BASE, 0xA3, unsigned)
++#define STPIO_DISABLE_IRQ	_IO(STPIO_IOCTL_BASE,  0xA4)
+ 
+-#endif /* _LINUX_ST_PIO_H_ */
++#endif /* _LINUX_STPIO_H_ */

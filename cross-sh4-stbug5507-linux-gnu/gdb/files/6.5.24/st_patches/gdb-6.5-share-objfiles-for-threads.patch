@@ -1,0 +1,131 @@
+Patch from Frédéric Riss <frederic.riss@st.com> to share debug info between threads.
+
+Signed-off-by: Chris Smith <chris.smith@st.com>
+Index: gdb-6.5/gdb/linux-awareness.c
+===================================================================
+--- gdb-6.5.orig/gdb/linux-awareness.c	2007-10-08 15:40:30.000000000 +0100
++++ gdb-6.5/gdb/linux-awareness.c	2007-10-08 15:40:44.000000000 +0100
+@@ -519,6 +519,7 @@
+     struct debugged_user_process *next;
+ 
+     int             pid;
++    int             tgid;
+     int             gdb_thread_id;
+     CORE_ADDR       task_struct_address;
+     struct objfile *objfiles;
+@@ -531,6 +532,7 @@
+     struct command_line *cmds;
+ };
+ 
++static const struct objfile_data *linux_user_process_objfile_data_key;
+ static int has_userspace_breakpoint;
+ struct debugged_user_process *user_processes;
+ struct debugged_user_process *current_user_process;
+@@ -4804,6 +4806,7 @@
+     struct objfile *objf, *next_objf;
+     struct breakpoint *bp, *tmp;
+     int first = 1;
++    int refs;
+ 
+     prev = &user_processes;
+ 
+@@ -4828,12 +4831,24 @@
+ 	    }
+ 
+ 	objf = ups->objfiles;
+-	while (objf) {
+-	    next_objf = objf->next;
+-	    objf->next = object_files;
+-	    object_files = objf;
+-	    free_objfile (objf);
+-	    objf = next_objf;
++
++	refs = (int)objfile_data (objf, linux_user_process_objfile_data_key);
++
++	if (refs == 1) {
++	    DEBUG(USER, 2, "Really freeing objfiles for pid %i\n", ups->pid);
++	    while (objf) {
++		next_objf = objf->next;
++		objf->next = object_files;
++		object_files = objf;
++		free_objfile (objf);
++		objf = next_objf;
++	    }
++	} else {
++	    DEBUG(USER, 2,
++		  "Decrementing refcount of objfiles for pid %i => %i\n",
++		  ups->pid, refs - 1);
++	    set_objfile_data (objf, linux_user_process_objfile_data_key,
++			      (void*)--refs);
+ 	}
+ 
+ 	ALL_BREAKPOINTS_SAFE (bp, tmp) {
+@@ -4911,6 +4926,9 @@
+ 		else
+ 		    objf->next = NULL;
+ 		break;
++	    } else if (objf->next == NULL && ups) {
++		objf->next = ups->objfiles;
++		break;
+ 	    }
+     } else if (ups) {
+ 	ALL_OBJFILES (objf)
+@@ -5195,6 +5213,7 @@
+     user_process = xmalloc (sizeof (struct debugged_user_process));
+     user_process->next = user_processes;
+     user_process->pid = ps->pid;
++    user_process->tgid = ps->tgid;
+     user_process->gdb_thread_id = pid_to_thread_id (ptid);
+     user_process->task_struct_address = ps->task_struct_address;
+     user_process->objfiles = objfiles;
+@@ -5262,6 +5281,7 @@
+     struct objfile* main_objfile = NULL;
+     struct section_addr_info addrs = { 1, {0, ".text", 0}};
+     struct cleanup *cleanup;
++    struct debugged_user_process *ups = user_processes;
+ 
+     if (current_user_process != NULL) {
+ 	/* Process already debugged.  */
+@@ -5288,6 +5308,23 @@
+ 	return;
+     }
+ 
++    while (ups) {
++	if (ups->tgid == ps->tgid) {
++	    int refs;
++	    objfiles = ups->objfiles;
++	    main_objfile = ups->main_objfile;
++	    refs = (int)objfile_data (objfiles,
++				      linux_user_process_objfile_data_key);
++	    DEBUG (USER, 2,
++		   "Found thread sibling symbol information (pid %i) %i refs\n",
++		   ups->pid, refs);
++	    set_objfile_data (objfiles, linux_user_process_objfile_data_key,
++			      (void*)++refs);
++	    goto done;
++	}
++	ups = ups->next;
++    }
++
+     /* Remove trailing whitespaces.  */
+     sanitize_target_root_prefix();
+ 
+@@ -5461,6 +5498,9 @@
+        the chain. */
+     do_cleanups (cleanup);
+ 
++    set_objfile_data (objfiles, linux_user_process_objfile_data_key, (void*)1);
++
++ done:
+     new_debugged_user_process (ps, objfiles, main_objfile);
+ 
+     if (from_tty) {
+@@ -6162,6 +6202,8 @@
+     static struct cmd_list_element *c;
+     struct debug_domain *domain;
+ 
++    linux_user_process_objfile_data_key = register_objfile_data ();
++
+     tmpdir = getenv("TMPDIR");
+ 
+     deprecated_target_new_objfile_hook = linux_awareness_auto_activate;

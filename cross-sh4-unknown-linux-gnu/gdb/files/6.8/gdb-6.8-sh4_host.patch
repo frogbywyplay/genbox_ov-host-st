@@ -1,0 +1,414 @@
+The FSF sources do not support sh4-unknown-linux-gnu hosts out of the box. This
+patch adds the support for this to work.
+
+Signed-off-by: Chris Smith <chris.smith@st.com>
+
+Index: gdb-6.8/gdb/configure.host
+===================================================================
+--- gdb-6.8.orig/gdb/configure.host	2008-09-19 11:50:14.000000000 +0100
++++ gdb-6.8/gdb/configure.host	2008-09-19 11:50:19.000000000 +0100
+@@ -137,6 +137,7 @@
+ 
+ s390*-*-*)		gdb_host=s390 ;;
+ 
++sh*-*-linux*)		gdb_host=linux ;;
+ sh*-*-netbsdelf* | sh*-*-knetbsd*-gnu)
+ 			gdb_host=nbsd ;;
+ sh*-*-openbsd*)		gdb_host=nbsd ;;
+Index: gdb-6.8/gdb/config/sh/linux.mh
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gdb-6.8/gdb/config/sh/linux.mh	2008-09-19 11:50:19.000000000 +0100
+@@ -0,0 +1,10 @@
++# Host: Hitachi SH running GNU/Linux
++NAT_FILE= nm-linux.h
++NATDEPFILES= inf-ptrace.o inf-child.o fork-child.o corelow.o \
++	core-regset.o sh-linux-nat.o linux-thread-db.o \
++	proc-service.o gcore.o linux-nat.o linux-fork.o
++
++SIM_OBS =
++SIM =
++
++LOADLIBES = -ldl -rdynamic
+Index: gdb-6.8/gdb/config/sh/nm-linux.h
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gdb-6.8/gdb/config/sh/nm-linux.h	2008-09-19 11:50:19.000000000 +0100
+@@ -0,0 +1,40 @@
++/* Native-dependent definitions for GNU/Linux on Hitachi SH.
++
++   Copyright 1996, 2001, 2002, 2003 Free Software Foundation, Inc.
++
++   This file is part of GDB.
++
++   This program is free software; you can redistribute it and/or modify
++   it under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 2 of the License, or
++   (at your option) any later version.
++
++   This program is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++   GNU General Public License for more details.
++
++   You should have received a copy of the GNU General Public License
++   along with this program; if not, write to the Free Software
++   Foundation, Inc., 59 Temple Place - Suite 330,
++   Boston, MA 02111-1307, USA.  */
++
++#ifndef NM_SHLINUX_H
++#define NM_SHLINUX_H
++
++#include "config/nm-linux.h"
++
++/* ptrace register ``addresses'' are absolute.  */
++#define U_REGS_OFFSET 0
++
++#define REGISTER_U_ADDR(addr, blockend, regno) \
++  (addr) = sh_linux_register_u_addr ((blockend),(regno))
++
++/* return sizeof user struct to callers in less machine dependent routines. */
++#define KERNEL_U_SIZE kernel_u_size()
++extern int kernel_u_size (void);
++
++/* Override copies of {fetch,store}_inferior_registers in infptrace.c.  */
++#define FETCH_INFERIOR_REGISTERS
++
++#endif /* NM_SHLINUX_H */
+Index: gdb-6.8/gdb/sh-linux-nat.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ gdb-6.8/gdb/sh-linux-nat.c	2008-09-19 12:04:13.000000000 +0100
+@@ -0,0 +1,319 @@
++/* Low level SH interface to ptrace, for GDB when running native.
++   Copyright 2002 Free Software Foundation, Inc.
++
++This file is part of GDB.
++
++This program is free software; you can redistribute it and/or modify
++it under the terms of the GNU General Public License as published by
++the Free Software Foundation; either version 2 of the License, or
++(at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++GNU General Public License for more details.
++
++You should have received a copy of the GNU General Public License
++along with this program; if not, write to the Free Software
++Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
++
++#include "defs.h"
++#include "frame.h"
++#include "inferior.h"
++#include "gdbcore.h"
++#include "gdb_string.h"
++#include "regcache.h"
++#include "linux-nat.h"
++
++#include <sys/ptrace.h>
++#include <sys/types.h>
++#include <sys/param.h>
++#include <sys/user.h>
++#include <sys/procfs.h>
++
++/* Prototypes for supply_gregset etc. */
++#include "gregset.h"
++#include "sh-tdep.h"
++
++static int
++sh_linux_register_u_addr (blockend, regnum)
++     int blockend;
++     int regnum;
++{
++  int offs = 0;
++  struct fpreg_internal
++  {
++    int fpul, fpscr;
++    int fp_regs[16];
++  };
++
++  /* Remap registers. */
++  if (regnum == SR_REGNUM)
++    return (blockend + REG_SR*4);
++  if (regnum == GBR_REGNUM)
++    return (blockend + REG_GBR*4);
++
++  /* Remap FP registers.  */
++  if (FR0_REGNUM >= 0 && FR0_REGNUM <= regnum && regnum < FR0_REGNUM + 16)
++    offs = (offsetof (gdb_fpregset_t, fp_regs[0])
++	    - offsetof (struct fpreg_internal, fp_regs[0]));
++  else if (regnum == FPSCR_REGNUM)
++    offs = (offsetof (gdb_fpregset_t, fpscr)
++	    - offsetof (struct fpreg_internal, fpscr));
++  else if (regnum == FPUL_REGNUM)
++    offs = (offsetof (gdb_fpregset_t, fpul)
++	    - offsetof (struct fpreg_internal, fpul));
++
++  return (blockend + 4 * regnum + offs);
++}
++
++/* Return the size of the user struct.  */
++
++int
++kernel_u_size (void)
++{
++  return (sizeof (struct user));
++}
++
++/* Return the address in the core dump or inferior of register REGNO.
++   BLOCKEND is the address of the end of the user structure.  */
++
++CORE_ADDR
++register_addr (regno, blockend)
++     int regno;
++     CORE_ADDR blockend;
++{
++  CORE_ADDR addr;
++
++  if (regno < 0 || regno >= SH_NUM_REGS)
++    error ("Invalid register number %d.", regno);
++
++  REGISTER_U_ADDR (addr, blockend, regno);
++
++  return addr;
++}
++
++void
++supply_gregset (struct regcache *regcache, const gdb_gregset_t * gregsetp)
++{
++  int regi;
++  register greg_t *regp = (greg_t *) gregsetp;
++
++  for (regi = 0; regi < 16; regi++)
++    regcache_raw_supply (regcache, regi, (char *) (regp + regi));
++
++  regcache_raw_supply (regcache, gdbarch_pc_regnum(current_gdbarch), (char *) (regp + REG_PC));
++  regcache_raw_supply (regcache, PR_REGNUM, (char *) (regp + REG_PR));
++  regcache_raw_supply (regcache, SR_REGNUM, (char *) (regp + REG_SR));
++  regcache_raw_supply (regcache, GBR_REGNUM, (char *) (regp + REG_GBR));
++  regcache_raw_supply (regcache, MACH_REGNUM, (char *) (regp + REG_MACH));
++  regcache_raw_supply (regcache, MACL_REGNUM, (char *) (regp + REG_MACL));
++}
++
++void
++supply_fpregset (struct regcache *regcache, const gdb_fpregset_t * fpregsetp)
++{
++  int regi;
++  long *regp = (long *)fpregsetp;
++
++  for (regi = 0; regi < 16; regi++)
++    regcache_raw_supply (regcache, FR0_REGNUM + regi, (char *) (regp + regi));
++
++  regcache_raw_supply (regcache, FPSCR_REGNUM, (char *) (regp + REG_FPSCR - REG_FPREG0));
++  regcache_raw_supply (regcache, FPUL_REGNUM, (char *) (regp + REG_FPUL - REG_FPREG0));
++}
++
++static int
++get_thread_id (ptid_t ptid)
++{
++  int tid = TIDGET (ptid);
++  if (0 == tid)
++    tid = PIDGET (ptid);
++  return tid;
++}
++
++static int
++sh_ptrace_can_fetch_store_register (int regno)
++{
++  return ((0 <= regno && regno < 16)
++	  || (FR0_REGNUM <= regno && regno < FR0_REGNUM + 16)
++	  || regno == gdbarch_pc_regnum(current_gdbarch)
++	  || regno == PR_REGNUM
++	  || regno == SR_REGNUM
++	  || regno == GBR_REGNUM
++	  || regno == MACH_REGNUM
++	  || regno == MACL_REGNUM
++	  || regno == FPSCR_REGNUM
++	  || regno == FPUL_REGNUM);
++}
++
++/* Default the type of the ptrace transfer to int.  */
++#ifndef PTRACE_XFER_TYPE
++#define PTRACE_XFER_TYPE int
++#endif
++
++/* Fetch one register.  */
++
++static void
++fetch_register (struct regcache *regcache, int regno)
++{
++  CORE_ADDR regaddr;
++  register int i;
++  unsigned int offset;		/* Offset of registers within the u area.  */
++  char mess[128];		/* For messages */
++  char buf[MAX_REGISTER_SIZE];
++  int tid;
++
++  if (! sh_ptrace_can_fetch_store_register (regno))
++    {
++      memset (buf, '\0', register_size (current_gdbarch, regno));	/* Supply zeroes */
++      regcache_raw_supply (regcache, regno, buf);
++      return;
++    }
++
++  tid = get_thread_id (inferior_ptid);
++
++  offset = U_REGS_OFFSET;
++
++  regaddr = register_addr (regno, offset);
++  for (i = 0; i < register_size (current_gdbarch, regno); i += sizeof (PTRACE_XFER_TYPE))
++    {
++      errno = 0;
++      *(PTRACE_XFER_TYPE *) & buf[i] = ptrace (PT_READ_U, tid,
++					       (PTRACE_TYPE_ARG3) regaddr, 0);
++      regaddr += sizeof (PTRACE_XFER_TYPE);
++      if (errno != 0)
++	{
++	  sprintf (mess, "reading register %s (#%d)",
++		   gdbarch_register_name(current_gdbarch, regno), regno);
++	  perror_with_name (mess);
++	}
++    }
++  regcache_raw_supply (regcache, regno, buf);
++}
++
++/* Fetch register values from the inferior.
++   If REGNO is negative, do this for all registers.
++   Otherwise, REGNO specifies which register (so we can save time). */
++
++void
++fetch_inferior_registers (struct regcache *regcache, int regno)
++{
++  if (regno >= 0)
++    fetch_register (regcache, regno);
++  else
++    {
++      for (regno = 0; regno < SH_NUM_REGS; regno++)
++	fetch_register (regcache, regno);
++    }
++}
++
++/* Store one register. */
++
++static void
++store_register (struct regcache *regcache, int regno)
++{
++  CORE_ADDR regaddr;
++  register int i;
++  unsigned int offset;		/* Offset of registers within the u area.  */
++  char mess[128];		/* For messages */
++  int tid;
++  char buf[MAX_REGISTER_SIZE];
++
++  if (! sh_ptrace_can_fetch_store_register (regno))
++    return;
++
++  tid = get_thread_id (inferior_ptid);
++
++  offset = U_REGS_OFFSET;
++
++  regaddr = register_addr (regno, offset);
++
++  /* Put the contents of regno into a local buffer */
++  regcache_raw_collect (regcache, regno, buf);
++
++  for (i = 0; i < register_size (current_gdbarch, regno); i += sizeof (PTRACE_XFER_TYPE))
++    {
++      errno = 0;
++      ptrace (PT_WRITE_U, tid, (PTRACE_TYPE_ARG3) regaddr,
++	      *(PTRACE_XFER_TYPE *) (buf + i));
++      regaddr += sizeof (PTRACE_XFER_TYPE);
++      if (errno != 0)
++	{
++	  sprintf (mess, "writing register %s (#%d)",
++		   gdbarch_register_name(current_gdbarch,regno), regno);
++	  perror_with_name (mess);
++	}
++    }
++}
++
++/* Store our register values back into the inferior.
++   If REGNO is negative, do this for all registers.
++   Otherwise, REGNO specifies which register (so we can save time).  */
++
++void
++store_inferior_registers (struct regcache *regcache, int regno)
++{
++  if (regno >= 0)
++    store_register (regcache, regno);
++  else
++    {
++      for (regno = 0; regno < SH_NUM_REGS; regno++)
++	store_register (regcache, regno);
++    }
++}
++
++void
++fill_gregset (const struct regcache *regcache, gdb_gregset_t *gregsetp, int regno)
++{
++  int regi;
++  elf_greg_t *regp = (elf_greg_t *) gregsetp;
++
++  for (regi = 0; regi < 16; regi++)
++    {
++      if ((regno == -1) || regno == regi)
++        regcache_raw_collect (regcache, regi, regp + regi);
++    }
++
++  if ((regno == -1) || regno == gdbarch_pc_regnum(current_gdbarch))
++    regcache_raw_collect (regcache, gdbarch_pc_regnum(current_gdbarch), regp + REG_PC);
++  if ((regno == -1) || regno == PR_REGNUM)
++    regcache_raw_collect (regcache, PR_REGNUM, regp + REG_PR);
++  if ((regno == -1) || regno == SR_REGNUM)
++    regcache_raw_collect (regcache, SR_REGNUM, regp + REG_SR);
++  if ((regno == -1) || regno == GBR_REGNUM)
++    regcache_raw_collect (regcache, GBR_REGNUM, regp + REG_GBR);
++  if ((regno == -1) || regno == MACH_REGNUM)
++    regcache_raw_collect (regcache, MACH_REGNUM, regp + REG_MACH);
++  if ((regno == -1) || regno == MACL_REGNUM)
++    regcache_raw_collect (regcache, MACL_REGNUM, regp + REG_MACL);
++}
++
++void
++fill_fpregset (const struct regcache *regcache, gdb_fpregset_t *fpregsetp, int regno)
++{
++  int regi;
++  long *regp = (long *)fpregsetp;
++
++  for (regi = 0; regi < 16; regi++)
++    {
++      if ((regno == -1) || (regno == FR0_REGNUM + regi))
++	regcache_raw_collect (regcache, FR0_REGNUM + regi, (char *) (regp + regi));
++    }
++  if ((regno == -1) || regno == FPSCR_REGNUM)
++    regcache_raw_collect (regcache, FPSCR_REGNUM, (char *) (regp + REG_FPSCR - REG_FPREG0));
++  if ((regno == -1) || regno == FPUL_REGNUM)
++    regcache_raw_collect (regcache, FPUL_REGNUM, (char *) (regp + REG_FPUL - REG_FPREG0));
++}
++
++ void _initialize_sh_linux_nat (void);
++
++void
++_initialize_sh_linux_nat (void)
++{
++  struct target_ops *t;
++  t = linux_target();
++  t->to_store_registers = &store_inferior_registers;
++  t->to_fetch_registers = &fetch_inferior_registers;
++  linux_nat_add_target (t);
++}
+Index: gdb-6.8/gdb/configure.tgt
+===================================================================
+--- gdb-6.8.orig/gdb/configure.tgt	2008-09-19 11:50:14.000000000 +0100
++++ gdb-6.8/gdb/configure.tgt	2008-09-19 12:02:27.000000000 +0100
+@@ -372,7 +372,7 @@
+ 	# Target: GNU/Linux Super-H
+ 	gdb_target_obs="sh-tdep.o sh64-tdep.o sh-linux-tdep.o monitor.o \
+ 			dsrec.o solib.o solib-svr4.o symfile-mem.o"
+-	gdb_sim=../sim/sh/libsim.a
++	gdb_sim=
+ 	build_gdbserver=yes
+ 	;;
+ sh*-*-netbsdelf* | sh*-*-knetbsd*-gnu)

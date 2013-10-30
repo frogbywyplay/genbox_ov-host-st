@@ -1,0 +1,12 @@
+Index: gcc/gcc/config/sh/linux.h
+===================================================================
+--- gcc.orig/gcc/config/sh/linux.h	2008-07-24 08:19:31.000000000 +0100
++++ gcc/gcc/config/sh/linux.h	2008-07-24 08:19:56.000000000 +0100
+@@ -63,6 +63,7 @@
+    %{!static: \
+      %{rdynamic:-export-dynamic} \
+      %{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER "}} \
++   --hash-style=gnu \
+    %{static:-static}"
+ 
+ /* Output assembler code to STREAM to call the profiler.  */
