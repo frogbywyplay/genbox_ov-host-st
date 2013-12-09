@@ -1,5 +1,4 @@
-# Copyright 1999-2007 Wyplay
-# $Header$
+# Copyright 2006-2013 Wyplay. All Rights Reserved.
 
 inherit eutils rpm 
 

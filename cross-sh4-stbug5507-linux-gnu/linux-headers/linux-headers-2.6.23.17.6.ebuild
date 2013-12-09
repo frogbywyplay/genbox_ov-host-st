@@ -1,5 +1,4 @@
-# Copyright 2008 Wyplay S.A.S.
-# $Header: $
+# Copyright 2006-2013 Wyplay. All Rights Reserved.
 
 ETYPE="headers"
 H_SUPPORTEDARCH="sh"

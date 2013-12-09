@@ -1,6 +1,4 @@
-# Copyright 1999-2006 Gentoo Foundation
-# Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-devel/gdb/gdb-6.4-r5.ebuild,v 1.2 2006/11/13 06:10:31 vapier Exp $
+# Copyright 2006-2013 Wyplay. All Rights Reserved.
 
 inherit flag-o-matic eutils autotools
 

@@ -1,6 +1,4 @@
-# Copyright 1999-2008 Gentoo Foundation
-# Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-devel/gcc/gcc-4.2.3.ebuild,v 1.3 2008/03/20 20:39:50 vapier Exp $
+# Copyright 2006-2013 Wyplay. All Rights Reserved.
 
 #Wyplay
 # Disable apply of Gentoo patch

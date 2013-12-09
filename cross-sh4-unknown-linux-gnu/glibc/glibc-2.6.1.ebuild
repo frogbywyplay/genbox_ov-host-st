@@ -1,6 +1,4 @@
-# Copyright 1999-2008 Gentoo Foundation
-# Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-libs/glibc/glibc-2.6.1.ebuild,v 1.26 2008/06/23 01:39:12 vapier Exp $
+# Copyright 2006-2013 Wyplay. All Rights Reserved.
 
 inherit eutils versionator libtool toolchain-funcs flag-o-matic gnuconfig multilib
 

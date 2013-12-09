@@ -1,6 +1,4 @@
-# Copyright 1999-2009 Gentoo Foundation
-# Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-devel/gdb/gdb-6.8-r2.ebuild,v 1.1 2009/03/12 03:16:50 vapier Exp $
+# Copyright 2006-2013 Wyplay. All Rights Reserved.
 
 inherit rpm flag-o-matic autotools eutils cross-libtool
 

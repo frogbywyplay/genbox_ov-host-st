@@ -1,6 +1,4 @@
-# Copyright 1999-2007 Gentoo Foundation
-# Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-devel/gcc/gcc-4.1.1-r3.ebuild,v 1.13 2007/02/13 14:36:19 gustavoz Exp $
+# Copyright 2006-2013 Wyplay. All Rights Reserved.
 
 PATCH_VER="1.10"
 UCLIBC_VER="1.1"

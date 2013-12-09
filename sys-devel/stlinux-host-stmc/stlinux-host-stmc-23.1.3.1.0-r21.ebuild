@@ -1,5 +1,4 @@
-# Copyright 2007 Wyplay
-# $Header: $
+# Copyright 2006-2013 Wyplay. All Rights Reserved.
 
 inherit rpm toolchain-funcs eutils
 

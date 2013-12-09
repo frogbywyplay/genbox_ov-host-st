@@ -1,6 +1,4 @@
-# Copyright 1999-2010 Gentoo Foundation
-# Distributed under the terms of the GNU General Public License v2
-# $Header: $
+# Copyright 2006-2013 Wyplay. All Rights Reserved.
 
 EAPI=1
 

@@ -1,6 +1,4 @@
-# Copyright 1999-2007 Gentoo Foundation
-# Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-libs/glibc/glibc-2.5-r3.ebuild,v 1.5 2007/05/31 06:36:48 vapier Exp $
+# Copyright 2006-2013 Wyplay. All Rights Reserved.
 
 # Here's how the cross-compile logic breaks down ...
 #  CTARGET - machine that will target the binaries
