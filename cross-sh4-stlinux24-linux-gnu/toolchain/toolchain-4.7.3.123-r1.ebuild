@@ -38,7 +38,7 @@ mirror://cross-stlinux24/stlinux24-sh4-libstdc++-dev-4.7.3-128.sh4.rpm
 
 LICENSE="ST"
 SLOT="0"
-KEYWORDS="x86-host"
+KEYWORDS="~x86-host"
 IUSE=""
 RESTRICT="strip nomirror"
 
