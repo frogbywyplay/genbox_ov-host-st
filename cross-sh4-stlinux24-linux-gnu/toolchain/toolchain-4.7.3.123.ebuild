@@ -39,7 +39,7 @@ ${WYPLAY_SRC_URI}
 
 LICENSE="ST"
 SLOT="0"
-KEYWORDS="~x86-host"
+KEYWORDS="x86-host"
 IUSE=""
 RESTRICT="strip nomirror"
 
