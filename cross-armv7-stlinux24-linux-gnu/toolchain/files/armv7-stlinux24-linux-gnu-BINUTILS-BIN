@@ -1,0 +1,9 @@
+#!/bin/bash
+
+COMPILER_DIR=@COMPILER_DIR@
+COMPILER_BINDIR=${COMPILER_DIR}/@CT_PREFIX@/bin
+BIN_NAME=$(basename ${0})
+
+${COMPILER_BINDIR}/${BIN_NAME/@TUPLES@-/} "$@"
+
+
