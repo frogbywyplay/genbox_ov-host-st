@@ -1,0 +1,27 @@
+diff --git a/gdb/symfile.c b/gdb/symfile.c
+index c5f2f5e..6da8425 100644
+--- a/gdb/symfile.c
++++ b/gdb/symfile.c
+@@ -1540,7 +1540,22 @@ find_separate_debug_file_by_debuglink (struct objfile *objfile)
+ 	  strcat (debugfile, basename);
+ 
+ 	  if (separate_debug_file_exists (debugfile, crc32, objfile))
++	  {
+ 	    goto cleanup_return_debugfile;
++	  }
++	  else
++	  {
++	      /* wyplay change order for sysroot */
++	      memcpy(debugfile, gdb_sysroot, strlen(gdb_sysroot));
++	      debugfile[strlen(gdb_sysroot)] = 0;
++	      strcat(debugfile, debugdir);
++	      strcat(debugfile, "/");
++	      strcat(debugfile, canon_name + strlen(gdb_sysroot));
++	      strcat(debugfile, "/");
++	      strcat(debugfile, basename);
++	      if (separate_debug_file_exists (debugfile, crc32, objfile))
++		  goto cleanup_return_debugfile;
++	  }
+ 	}
+ 
+       debugdir = debugdir_end;
