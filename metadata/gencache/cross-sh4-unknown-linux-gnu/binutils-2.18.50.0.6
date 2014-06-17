@@ -1,0 +1,16 @@
+2cadab0a6672c0ea569eead17781779b
+_eclasses_=toolchain-funcs	@OV_DIR@/eclass	bd8532b6a2958d089b47af03c040ba29	portability	@OV_DIR@/eclass	abd8d8ec56c721dcb237090d992993d8	flag-o-matic	@OV_DIR@/eclass	d55e411440de639f45bbd973a0d39d4e	multilib	@OV_DIR@/eclass	fc28d56028a22a049082bb93f02c7b56	toolchain-binutils	@OV_DIR@/eclass	4bb575e8e112cbd4fc4ff56aa7cdea57	libtool	@OV_DIR@/eclass	2379c064bc473a7cf78a79d77158496d	gnuconfig	@OV_DIR@/eclass	9200bfc8e0184357abfb86a08edd4fc3	eutils	@OV_DIR@/eclass	1f0ea57fcb09f3174d22d5f17fee8ed8
+LICENSE=|| ( GPL-2 LGPL-2 )
+RESTRICT=
+SRC_URI=mirror://kernel/linux/devel/binutils/binutils-2.18.50.0.6.tar.bz2 mirror://kernel/linux/devel/binutils/test/binutils-2.18.50.0.6.tar.bz2 mirror://gnu/binutils/binutils-2.18.50.0.6.tar.bz2
+KEYWORDS=sh
+RDEPEND=>=sys-devel/binutils-config-1.9
+SLOT=sh4-unknown-linux-gnu
+DEPEND=sys-devel/gnuconfig >=sys-devel/binutils-config-1.9 nls? ( sys-devel/gettext )
+IUSE=nls multitarget multislot test vanilla
+HOMEPAGE=http://sources.redhat.com/binutils/
+PROVIDE=
+PDEPEND=
+EAPI=0
+DESCRIPTION=Tools necessary to build programs
+CDEPEND=

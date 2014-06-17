@@ -1,0 +1,16 @@
+b24e3a7b9d8f16f05d7ee5b4d23ccf21
+_eclasses_=toolchain-funcs	@OV_DIR@/eclass	bd8532b6a2958d089b47af03c040ba29	portability	@OV_DIR@/eclass	abd8d8ec56c721dcb237090d992993d8	flag-o-matic	@OV_DIR@/eclass	d55e411440de639f45bbd973a0d39d4e	multilib	@OV_DIR@/eclass	fc28d56028a22a049082bb93f02c7b56	libtool	@OV_DIR@/eclass	2379c064bc473a7cf78a79d77158496d	autotools	@OV_DIR@/eclass	edfa58f3bcb6951e7253dfc36b8a315e	eutils	@OV_DIR@/eclass	1f0ea57fcb09f3174d22d5f17fee8ed8
+LICENSE=GPL-2 LGPL-2
+RESTRICT=
+SRC_URI=http://ftp.gnu.org/gnu/gdb/gdb-6.5.tar.bz2
+KEYWORDS=x86-host
+RDEPEND=>=sys-libs/ncurses-5.2-r2
+SLOT=sh4-unknown-linux-gnu
+DEPEND=test? ( dev-util/dejagnu ) nls? ( sys-devel/gettext ) =sys-devel/automake-1.10* >=sys-devel/autoconf-2.61 sys-devel/libtool
+IUSE=nls test vanilla
+HOMEPAGE=http://sources.redhat.com/gdb/
+PROVIDE=
+PDEPEND=
+EAPI=0
+DESCRIPTION=GNU debugger
+CDEPEND=

@@ -1,0 +1,16 @@
+5d7033c147fd5062d4cb9e55f85c9a95
+_eclasses_=toolchain-funcs	@OV_DIR@/eclass	bd8532b6a2958d089b47af03c040ba29	portability	@OV_DIR@/eclass	abd8d8ec56c721dcb237090d992993d8	multilib	@OV_DIR@/eclass	fc28d56028a22a049082bb93f02c7b56	stlinux	@OV_DIR@/eclass	6234aa32c23dab30a3ed064361d374bd	rpm	@OV_DIR@/eclass	ca0492510cec51c3c59810c735267b9d	eutils	@OV_DIR@/eclass	1f0ea57fcb09f3174d22d5f17fee8ed8
+LICENSE=GPL
+RESTRICT=strip nomirror
+SRC_URI=mirror://cross-stlinux24/stlinux24-armv7-glibc-2.10.1-31.armv7.rpm mirror://cross-stlinux24/stlinux24-armv7-glibc-debuginfo-2.10.1-31.armv7.rpm mirror://cross-stlinux24/stlinux24-armv7-glibc-dev-2.10.1-31.armv7.rpm mirror://cross-stlinux24/stlinux24-armv7-glibc-i18ndata-2.10.1-31.armv7.rpm mirror://cross-stlinux24/stlinux24-armv7-glibc-locales-2.10.1-31.armv7.rpm mirror://cross-stlinux24/stlinux24-armv7-glibc-nscd-2.10.1-31.armv7.rpm mirror://cross-stlinux24/stlinux24-armv7-libgcc-4.6.2-99.armv7.rpm mirror://cross-stlinux24/stlinux24-armv7-libstdc++-4.6.2-99.armv7.rpm mirror://cross-stlinux24/stlinux24-armv7-libstdc++-dev-4.6.2-99.armv7.rpm mirror://cross-stlinux24/stlinux24-armv7-linux-kernel-headers-2.6.32.16-44.noarch.rpm mirror://cross-stlinux24/stlinux24-cross-armv7-armdebug-7.2-15.i386.rpm mirror://cross-stlinux24/stlinux24-cross-armv7-binutils-2.20.51.0.7-55.i386.rpm mirror://cross-stlinux24/stlinux24-cross-armv7-cpp-4.6.2-96.i386.rpm mirror://cross-stlinux24/stlinux24-cross-armv7-g++-4.6.2-96.i386.rpm mirror://cross-stlinux24/stlinux24-cross-armv7-gcc-4.6.2-96.i386.rpm mirror://cross-stlinux24/stlinux24-cross-armv7-gmp-5.0.1-9.i386.rpm mirror://cross-stlinux24/stlinux24-cross-armv7-libelf-0.8.13-1.i386.rpm mirror://cross-stlinux24/stlinux24-cross-armv7-mpfr-3.0.0-9.i386.rpm mirror://cross-stlinux24/stlinux24-cross-armv7-protoize-4.6.2-96.i386.rpm
+KEYWORDS=~x86-host
+RDEPEND=
+SLOT=0
+DEPEND=>=app-arch/rpm2targz-9.0-r1
+IUSE=
+HOMEPAGE=http://www.stlinux.com
+PROVIDE=virtual/cross-armv7-stlinux24-linux-gnu-gcc virtual/cross-armv7-stlinux24-linux-gnu-glibc
+PDEPEND=
+EAPI=1
+DESCRIPTION=STLinux 2.4 armv7 cross toolchain
+CDEPEND=
