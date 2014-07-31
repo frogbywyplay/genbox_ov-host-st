@@ -34,7 +34,7 @@ mirror://cross-stlinux24/armv7/stlinux24-cross-armv7-mpfr-3.1.2-13.i386.rpm
 
 LICENSE="GPL"
 SLOT="0"
-KEYWORDS="~x86-host"
+KEYWORDS="x86-host"
 IUSE=""
 RESTRICT="strip nomirror"
 
