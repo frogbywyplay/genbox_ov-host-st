@@ -3,5 +3,8 @@
 COMPILER_DIR=@COMPILER_DIR@
 COMPILER_BINDIR=${COMPILER_DIR}/bin
 BIN_NAME=$(basename ${0})
+#Fix for stlinux24
+BIN_NAME=${BIN_NAME/"sh4-stlinux24-linux-uclibc"/"sh4-linux-uclibc"}
+
 
 ${COMPILER_BINDIR}/${BIN_NAME/@TUPLES@-/@CT_PREFIX@-} "$@"
