@@ -4,7 +4,7 @@ inherit rpm stlinux
 
 DESCRIPTION="ST Micro Connection Package"
 HOMEPAGE="http://www.stlinux.com"
-SRC_URI="mirror://stlinux/stlinux24-host-stmc-2012.2.1-83.i386.rpm"
+SRC_URI="mirror://cross-stlinux24/stlinux24-host-stmc-2012.2.1-83.i386.rpm"
 
 LICENSE="ST"
 SLOT="2.4"
