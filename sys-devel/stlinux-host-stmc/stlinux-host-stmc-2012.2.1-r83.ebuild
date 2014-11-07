@@ -12,5 +12,7 @@ KEYWORDS="x86-host"
 IUSE=""
 RESTRICT="strip binchecks"
 
-RDEPEND="!sys-devel/stlinux-host-havana-stmc"
+RDEPEND="!sys-devel/stlinux-host-havana-stmc
+sys-devel/stlinux-host-targetpacks
+"
 DEPEND=""
