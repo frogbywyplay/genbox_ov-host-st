@@ -34,6 +34,8 @@ mirror://cross-stlinux24/stlinux24-sh4-mpc-1.0.2-6.sh4.rpm
 mirror://cross-stlinux24/stlinux24-sh4-libgcc-4.8.4-149.sh4.rpm
 mirror://cross-stlinux24/stlinux24-sh4-libstdc++-4.8.4-149.sh4.rpm
 mirror://cross-stlinux24/stlinux24-sh4-libstdc++-dev-4.8.4-149.sh4.rpm
+
+mirror://cross-stlinux24/stlinux24-gcc-plugins-acf-1.2-7.i386.rpm
 "
 
 LICENSE="ST"
