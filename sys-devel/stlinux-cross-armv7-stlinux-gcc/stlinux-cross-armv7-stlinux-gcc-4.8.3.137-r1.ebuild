@@ -52,7 +52,8 @@ IUSE=""
 RESTRICT="strip nomirror"
 
 DEPEND="sys-apps/dtc"
-RDEPEND="dev-util/ccache"
+RDEPEND="dev-util/ccache
+		!cross-armv7-stlinux24-linux-gnu/toolchain"
 PROVIDE="virtual/${CATEGORY}-gcc
 virtual/${CATEGORY}-glibc"
 
